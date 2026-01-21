@@ -21,6 +21,79 @@ print(f"✅ Chargé initialement : {len(df)} lignes.")
 
 # --- 3. FONCTIONS DE NETTOYAGE ---
 
+def extraire_ville_regex(row):
+    """
+    Cherche un motif 'Ville - Dept' dans les tags.
+    Prioritaire sur la colonne 'Ville'.
+    Unifie toutes les variantes de Paris.
+    
+    """
+    tags = str(row['Details_Tags'])
+    ville_trouvee = "France"
+
+    # REGEX : Un mot (avec tirets/espaces) + " - " + 2 chiffres (département)   
+    match = re.search(r'(?<!\d)([A-Za-zÀ-ÿ\s-]+)\s-\s(\d{2}\b)', tags)
+    
+    if match:
+        ville = match.group(1).strip()
+        # On ignore "Salaire - 35" qui pourrait ressembler à une ville
+        if "salaire" not in ville.lower():
+            ville_trouvee = ville
+    
+    # Si regex échoue, on regarde la colonne Ville existante
+    ville_existante = str(row['Ville'])
+    if ville_existante and "Non spécifié" not in ville_existante and len(ville_existante) > 2:
+        if " - " in ville_existante:
+            ville_trouvee = ville_existante.split(' - ')[0]
+        else:
+            ville_trouvee = ville_existante
+
+
+    #Unification des grandes villes (arrondissements)    
+    ville_lower = ville_trouvee.lower()
+    
+    if "paris" in ville_lower:
+        return "Paris"
+    if "lyon" in ville_lower:  # Bonus : souvent utile pour "Lyon 3ème", etc.
+        return "Lyon"
+    if "marseille" in ville_lower:
+        return "Marseille"
+        
+    return ville_trouvee
+
+def extraire_contrat_regex(row):
+    """
+    Cherche CDI, CDD, etc. partout dans les tags
+    """
+    tags = str(row['Details_Tags']).upper()
+    
+    # Ordre d'importance
+    if "CDD" in tags: return "CDD"
+    if "INTERIM" in tags or "INTÉRIM" in tags: return "Intérim"
+    if "FREELANCE" in tags or "INDÉPENDANT" in tags: return "Freelance"
+    if "STAGE" in tags: return "Stage"
+    if "ALTERNANCE" in tags or "PROFESSIONNALISATION" in tags: return "Alternance"
+    if "CDI" in tags: return "CDI"
+    
+    return "CDI" # Valeur par défaut
+
+def extraire_salaire_apec(texte):
+    if pd.isna(texte) or "Non spécifié" in str(texte):
+        return None
+    txt = str(texte).lower().replace(',', '.')
+    
+    # Cas 1 : Fourchette "35 - 45 k€"
+    match_range = re.search(r'(\d{2})[ ]?[-|à][ ]?(\d{2})[ ]?k', txt)
+    if match_range:
+        return int((float(match_range.group(1)) + float(match_range.group(2))) / 2 * 1000)
+
+    # Cas 2 : Valeur simple "40 k€"
+    match_simple = re.search(r'(\d{2})[ ]?k', txt)
+    if match_simple:
+        val = float(match_simple.group(1))
+        if 20 <= val <= 150: return int(val * 1000)
+    return None
+
 def est_offre_valide(row):
     """
     Détecte si la ligne est une vraie offre ou du 'bruit' (cookies, login, offre expirée).
@@ -58,43 +131,6 @@ def est_offre_valide(row):
 
     return True
 
-def extraire_salaire_apec(texte):
-    if pd.isna(texte) or "Non spécifié" in str(texte) or "A négocier" in str(texte):
-        return None
-    txt = str(texte).lower().replace(',', '.')
-    
-    # Cas 1 : Fourchette "35 - 45 k€"
-    match_range = re.search(r'(\d{2})[ ]?[-|à][ ]?(\d{2})[ ]?k', txt)
-    if match_range:
-        min_k = float(match_range.group(1))
-        max_k = float(match_range.group(2))
-        return int((min_k + max_k) / 2 * 1000)
-
-    # Cas 2 : Valeur unique "A partir de 40 k€"
-    match_simple = re.search(r'(\d{2})[ ]?k', txt)
-    if match_simple:
-        val = float(match_simple.group(1))
-        if 20 <= val <= 150:
-            return int(val * 1000)
-    return None
-
-def nettoyer_ville_apec(texte):
-    if pd.isna(texte): return "France"
-    txt = str(texte)
-    if " - " in txt:
-        ville = txt.split(" - ")[0]
-        ville = re.sub(r'\s\d{2}$', '', ville) 
-        return ville.strip()
-    return txt.strip()
-
-def detecter_contrat(texte_tags):
-    if pd.isna(texte_tags): return "CDI" # Par défaut sur l'APEC
-    txt = str(texte_tags).upper()
-    mots_cles = ["CDI", "CDD", "INTERIM", "ALTERNANCE", "STAGE", "FREELANCE"]
-    for mot in mots_cles:
-        if mot in txt:
-            return mot.capitalize()
-    return "CDI"
 
 def nettoyer_texte(texte):
     if pd.isna(texte): return ""
@@ -123,10 +159,10 @@ print("⚙️ Transformation des données...")
 df_clean['Salaire_Annuel_Estime'] = df_clean['Salaire_Brut'].apply(extraire_salaire_apec)
 
 # Ville
-df_clean['Ville_Clean'] = df_clean['Ville'].apply(nettoyer_ville_apec)
+df_clean['Ville_Clean'] = df_clean.apply(extraire_ville_regex, axis = 1)
 
 # Contrat
-df_clean['Type_Contrat'] = df_clean['Details_Tags'].apply(detecter_contrat)
+df_clean['Type_Contrat'] = df_clean.apply(extraire_contrat_regex, axis = 1)
 
 # Nettoyage texte description
 df_clean['Description_Propre'] = df_clean['Description_Complete'].apply(nettoyer_texte)
