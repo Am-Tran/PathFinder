@@ -49,12 +49,20 @@ selected_contrat = st.sidebar.multiselect("Type de Contrat", contrat_list, defau
 top_villes = df['Ville'].value_counts().head(20).index.tolist()
 selected_ville = st.sidebar.multiselect("Ville (Top 20)", top_villes, default=top_villes)
 
+# 4. Filtre Niveau
+niveau_list = df['Niveau'].unique().tolist()
+selected_niveau = st.sidebar.multiselect("Niveau", niveau_list, default=niveau_list)
+
 # --- APPLICATION DES FILTRES ---
 df_filtered = df[
     (df['Source'].isin(selected_source)) &
     (df['Type_Contrat'].isin(selected_contrat)) &
-    (df['Ville'].isin(selected_ville))
+    (df['Ville'].isin(selected_ville)) &
+    (df['Niveau'].isin(selected_niveau))
 ]
+if df_filtered.empty:
+    st.warning("Aucune offre ne correspond à ces critères.")
+    st.stop()
 
 # --- KPI ---
 st.markdown("---")
@@ -98,6 +106,23 @@ contrat_counts.columns = ['Type', 'Nombre']
 fig_contrat = px.pie(contrat_counts, values='Nombre', names='Type', title="Répartition des Contrats", hole=0.4)
 # CORRECTION ICI
 st.plotly_chart(fig_contrat, width="stretch")
+
+# --- GRAPHIQUE : RÉPARTITION PAR EXPÉRIENCE ---
+st.markdown("---")
+st.subheader("🎓 Niveaux d'Expérience Requis")
+
+# Création du graphique (Camembert / Donut)
+fig_niveau = px.pie(
+    df, 
+    names='Niveau', 
+    title='Distribution des offres par niveau',
+    hole=0.4, # Donne un style "Donut" plus moderne
+    color_discrete_sequence=px.colors.qualitative.Set3 # Palette de couleurs distinctes
+)
+
+# Affichage avec mise à jour du texte au survol
+fig_niveau.update_traces(textinfo='percent+label')
+st.plotly_chart(fig_niveau, width="stretch")
 
 # --- TABLEAU DE DONNÉES ---
 st.markdown("---")

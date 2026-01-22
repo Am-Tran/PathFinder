@@ -36,10 +36,11 @@ def determiner_niveau(row):
     desc = str(row['Description']).lower() if pd.notna(row['Description']) else "" 
     lieu = str(row['Ville']).lower() if pd.notna(row['Ville']) else "" 
     salaire = row['Salaire_Annuel']
+    contrat = str(row['Type_Contrat']).lower() if pd.notna(row['Type_Contrat']) else ""
 
     # --- 2. DÉTECTION STAGE (Priorité absolue) ---
     mots_stage = ["stage", "internship", "alternance", "alternant", "stagiaire", "apprentissage", "contrat pro"]
-    if any(k in titre for k in mots_stage) or any(k in desc for k in mots_stage):
+    if any(k in contrat for k in mots_stage) or any(k in titre for k in mots_stage) or any(k in desc for k in mots_stage):
         return "Stage / Alternance"
 
     # --- 3. DÉFINITION DES SEUILS SELON LA GÉOGRAPHIE ---
@@ -170,7 +171,7 @@ if not dataframes:
 print("🌪️  Mélange des données...")
 df_final = pd.concat(dataframes, ignore_index=True)
 
-# === LE NETTOYAGE ULTIME ===
+# === LE NETTOYAGE ===
 
 print("✨ Nettoyage et Harmonisation des Contrats...")
 
@@ -188,6 +189,16 @@ corrections_contrat = {
     "Cdd": "CDD",  # On remet en majuscules
     "Nan": "Non spécifié" # Gère les valeurs vides
 }
+
+print("🧹 Standardisation des grandes villes (Arrondissements)...")
+
+df_final['Ville'] = df_final['Ville'].astype(str).str.replace(r'(?i)^paris.*', 'Paris', regex=True)
+df_final['Ville'] = df_final['Ville'].str.replace(r'(?i)^lyon.*', 'Lyon', regex=True)
+df_final['Ville'] = df_final['Ville'].str.replace(r'(?i)^marseille.*', 'Marseille', regex=True)
+
+# Correction spécifique pour "La Défense" qui apparaît parfois comme "Puteaux" ou "Courbevoie"
+# (Optionnel, mais utile pour regrouper les offres de ce hub)
+# df_final['Ville'] = df_final['Ville'].replace(['Courbevoie', 'Puteaux', 'Nanterre'], 'La Défense')
 
 # 3. Application des corrections
 df_final["Type_Contrat"] = df_final["Type_Contrat"].replace(corrections_contrat)
