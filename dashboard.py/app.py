@@ -127,7 +127,7 @@ col1.metric("Offres affichées", nb_offres)
 col2.metric("Salaire Moyen Estimé", f"{salaire_moyen:,.0f} €" if nb_offres > 0 and not pd.isna(salaire_moyen) else "N/A")
 col3.metric("Offres avec salaire affiché", f"{len(df_salaires)}")
 
-# --- GRAPHIQUES ---
+# --- GRAPHE REPARTITION PAR VILLE ---
 st.markdown("---")
 
 col_g1, col_g2 = st.columns(2)
@@ -158,10 +158,17 @@ with col_g1:
     # CORRECTION ICI : width="stretch" au lieu de use_container_width
     st.plotly_chart(fig_ville, width="stretch")
 
+# --- GRAPHE SALAIRES PAR SOURCE ---
 with col_g2:
     st.subheader("💰 Distribution des Salaires")
     if not df_salaires.empty:
-        fig_salaire = px.box(df_salaires, x='Source', y='Salaire_Annuel', color='Source', title="Salaires par Source")
+        fig_salaire = px.box(
+            df_salaires,
+            x='Source',
+            y='Salaire_Annuel',
+            color='Source',
+            title="Salaires par Source",
+            color_discrete_sequence=px.colors.qualitative.Pastel)
         fig_salaire.update_layout(
         font=dict(size=taille_police), # Taille globale
         title=dict(font=dict(size=taille_police + 2), x=0.5),
@@ -181,6 +188,94 @@ with col_g2:
         st.plotly_chart(fig_salaire, width="stretch")
     else:
         st.info("Pas assez de données de salaire pour afficher le graphique.")
+
+
+# --- ANALYSE DES STACKS (Compétences) ---
+st.markdown("---")
+st.subheader("🛠️ Les Technologies les plus demandées")
+
+# 1. DÉFINITION DES MOTS-CLÉS (Dictionnaire : Nom Aiché -> Regex)
+# On utilise des Regex (\b = frontière de mot) pour éviter les faux positifs (ex: "java" dans "javascript")
+keywords = {
+    "Python": r"\bpython\b",
+    "SQL": r"\bsql\b",
+    "Excel": r"\bexcel\b",
+    "Power BI": r"power\s?bi", # Accepte "PowerBI" ou "Power BI"
+    "Tableau": r"\btableau\b",
+    "R": r"\bR\b",             # Attention, peut capter "R&D", mais souvent OK
+    "SAS": r"\bsas\b",
+    "VBA": r"\bvba\b",
+    "AWS": r"\baws\b",
+    "Azure": r"\bazure\b",
+    "GCP": r"\bgcp\b|google\scloud",
+    "Spark": r"\bspark\b",
+    "Hadoop": r"\bhadoop\b",
+    "Kafka": r"\bkafka\b",
+    "Airflow": r"\bairflow\b",
+    "Snowflake": r"\bsnowflake\b",
+    "Databricks": r"\bdatabricks\b",
+    "Docker": r"\bdocker\b",
+    "Kubernetes": r"\bkubernetes\b|k8s",
+    "Git": r"\bgit\b",
+    "Linux": r"\blinux\b",
+    "Pandas": r"\bpandas\b",
+    "TensorFlow": r"\btensorflow\b",
+    "PyTorch": r"\bpytorch\b",
+    "Scikit-learn": r"scikit[\s\-]learn|sklearn",
+    "Java": r"\bjava\b",       # Exclut Javascript grâce aux \b
+    "Scala": r"\bscala\b",
+    "C++": r"\bc\+\+",
+    "NoSQL": r"no\s?sql|mongo|cassandra",
+    "Dbt": r"\bdbt\b"
+}
+
+# 2. CONCATÉNATION DU TEXTE (Titre + Description) pour la recherche
+# On met tout en minuscules pour ne pas rater "Python" vs "python"
+text_corpus = (df_filtered['Titre'].fillna('') + " " + df_filtered['Description'].fillna('')).str.lower()
+
+# 3. COMPTAGE (Boucle sur les mots-clés)
+stack_counts = {}
+for tech, pattern in keywords.items():
+    # On compte le nombre de lignes qui contiennent le pattern
+    count = text_corpus.str.contains(pattern, regex=True).sum()
+    if count > 0:
+        stack_counts[tech] = count
+
+# 4. CRÉATION DU DATAFRAME ET TRI
+df_stack = pd.DataFrame(list(stack_counts.items()), columns=['Tech', 'Mentions'])
+df_stack = df_stack.sort_values(by='Mentions', ascending=True) # Croissant pour le bar chart horizontal
+
+# 5. AFFICHAGE DU GRAPHIQUE
+if not df_stack.empty:
+    fig_stack = px.bar(
+        df_stack.tail(10), # .head()
+        x='Mentions',
+        y='Tech',
+        orientation='h',
+        text='Mentions',
+        title="Top 10 des Compétences techniques",
+        color='Mentions',
+        color_continuous_scale='blugrn' # Une couleur différente (Rouge/Orange)
+    )
+
+    fig_stack.update_layout(
+        font=dict(size=taille_police),
+        title=dict(font=dict(size=taille_police + 2), x=0.5),
+        coloraxis_showscale=False,
+        xaxis=dict(
+            title_font=dict(size=taille_police),
+            tickfont=dict(size=taille_police)
+        ),
+        yaxis=dict(
+            title_font=dict(size=taille_police),
+            tickfont=dict(size=taille_police)
+        )
+    )
+    fig_stack.update_traces(textfont_size=taille_police)
+
+    st.plotly_chart(fig_stack, width="stretch", height=600)
+else:
+    st.info("Aucune compétence technique détectée dans les offres sélectionnées.")
 
 # --- POSITION DES DONUTS ---
 
