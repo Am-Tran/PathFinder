@@ -39,19 +39,66 @@ st.sidebar.header("Filtres")
 
 # 1. Filtre Source
 source_list = df['Source'].unique().tolist()
-selected_source = st.sidebar.multiselect("Source", source_list, default=source_list)
+choix_source = st.sidebar.multiselect(
+    "Source", 
+    source_list, 
+    default=[], 
+    placeholder="Toutes les sources"
+)
+selected_source = choix_source if choix_source else source_list
 
 # 2. Filtre Contrat
-contrat_list = df['Type_Contrat'].dropna().unique().tolist()
-selected_contrat = st.sidebar.multiselect("Type de Contrat", contrat_list, default=contrat_list)
+contrat_list = sorted(df['Type_Contrat'].dropna().unique().tolist())
+choix_contrat = st.sidebar.multiselect(
+    "Type de Contrat", 
+    contrat_list, 
+    default=[], 
+    placeholder="Tous les contrats"
+)
+selected_contrat = choix_contrat if choix_contrat else contrat_list
 
 # 3. Filtre Ville (Top 20)
 top_villes = df['Ville'].value_counts().head(20).index.tolist()
-selected_ville = st.sidebar.multiselect("Ville (Top 20)", top_villes, default=top_villes)
+
+choix_villes = st.sidebar.multiselect(
+    "Filtrer par Ville", 
+    top_villes, 
+    default=[], # On laisse vide au départ pour ne pas surcharger
+    placeholder="Toutes les villes (cliquez pour filtrer)"
+)
+
+# LOGIQUE INTELLIGENTE :
+# Si la liste est vide, on prend TOUT. Sinon, on prend la sélection.
+if not choix_villes:
+    selected_ville = top_villes # On garde tout le monde
+    st.sidebar.caption("🌍 *Toutes les villes affichées*")
+else:
+    selected_ville = choix_villes
+    st.sidebar.caption(f"📍 *{len(choix_villes)} ville(s) filtrée(s)*")
+
 
 # 4. Filtre Niveau
-niveau_list = df['Niveau'].unique().tolist()
-selected_niveau = st.sidebar.multiselect("Niveau", niveau_list, default=niveau_list)
+ordre_niveaux = ["Stage / Alternance", "Junior", "Confirmé", "Senior", "Non spécifié"]
+niveau_list = [n for n in ordre_niveaux if n in df['Niveau'].unique()]
+
+choix_niveau = st.sidebar.multiselect(
+    "Niveau de Séniorité", 
+    niveau_list, 
+    default=[], 
+    placeholder="Tous les niveaux"
+)
+selected_niveau = choix_niveau if choix_niveau else niveau_list
+
+# --- PARAMÈTRES D'AFFICHAGE ---
+st.sidebar.markdown("---")
+st.sidebar.header("⚙️ Affichage")
+taille_police = st.sidebar.slider(
+    "Taille du texte des graphes", 
+    min_value=10, 
+    max_value=30, 
+    value=17, # Valeur par défaut
+    step=1
+)
 
 # --- APPLICATION DES FILTRES ---
 df_filtered = df[
@@ -60,6 +107,10 @@ df_filtered = df[
     (df['Ville'].isin(selected_ville)) &
     (df['Niveau'].isin(selected_niveau))
 ]
+# Affichage du nombre de résultats en temps réel dans la sidebar
+st.sidebar.markdown("---")
+st.sidebar.metric(label="Offres filtrées", value=len(df_filtered))
+
 if df_filtered.empty:
     st.warning("Aucune offre ne correspond à ces critères.")
     st.stop()
@@ -85,8 +136,25 @@ with col_g1:
     st.subheader("📍 Répartition par Ville")
     ville_counts = df_filtered['Ville'].value_counts().head(10).reset_index()
     ville_counts.columns = ['Ville', 'Nombre']
+    ville_counts = ville_counts.sort_values(by="Nombre", ascending=True)
     fig_ville = px.bar(ville_counts, x='Nombre', y='Ville', orientation='h', color='Nombre', title="Top 10 Villes")
-    fig_ville.update_layout(yaxis={'categoryorder':'total ascending'})
+    fig_ville.update_layout(                
+        font=dict(size=taille_police),
+        title=dict(
+            font=dict(size=taille_police + 2),
+            x=0.5
+        ),
+        coloraxis_showscale=False,
+        xaxis=dict(
+            title_font=dict(size=taille_police), # Le mot "Offres"
+            tickfont=dict(size=taille_police)    # Les chiffres 0, 10, 20...
+        ),
+        yaxis=dict(
+            title_font=dict(size=taille_police), # Le mot "Ville"
+            tickfont=dict(size=taille_police)    # Les mots Paris, Lyon...
+        )
+    )
+    fig_ville.update_traces(textfont_size=taille_police)
     # CORRECTION ICI : width="stretch" au lieu de use_container_width
     st.plotly_chart(fig_ville, width="stretch")
 
@@ -94,35 +162,100 @@ with col_g2:
     st.subheader("💰 Distribution des Salaires")
     if not df_salaires.empty:
         fig_salaire = px.box(df_salaires, x='Source', y='Salaire_Annuel', color='Source', title="Salaires par Source")
-        # CORRECTION ICI
+        fig_salaire.update_layout(
+        font=dict(size=taille_police), # Taille globale
+        title=dict(font=dict(size=taille_police + 2), x=0.5),
+        showlegend=False, # Souvent inutile sur un boxplot coloré par X, ça gagne de la place
+        
+        # Axe X (Sources : Indeed, Glassdoor...)
+        xaxis=dict(
+            title_font=dict(size=taille_police),
+            tickfont=dict(size=taille_police)
+        ),
+        # Axe Y (Montants : 30k, 40k...)
+        yaxis=dict(
+            title_font=dict(size=taille_police),
+            tickfont=dict(size=taille_police)
+        )
+    )
         st.plotly_chart(fig_salaire, width="stretch")
     else:
         st.info("Pas assez de données de salaire pour afficher le graphique.")
 
-# --- GRAPHIQUE CONTRAT ---
-st.subheader("📜 Types de Contrats")
-contrat_counts = df_filtered['Type_Contrat'].value_counts().reset_index()
-contrat_counts.columns = ['Type', 'Nombre']
-fig_contrat = px.pie(contrat_counts, values='Nombre', names='Type', title="Répartition des Contrats", hole=0.4)
-# CORRECTION ICI
-st.plotly_chart(fig_contrat, width="stretch")
+# --- POSITION DES DONUTS ---
 
-# --- GRAPHIQUE : RÉPARTITION PAR EXPÉRIENCE ---
 st.markdown("---")
-st.subheader("🎓 Niveaux d'Expérience Requis")
+col1, col2 = st.columns(2)
 
-# Création du graphique (Camembert / Donut)
-fig_niveau = px.pie(
-    df, 
-    names='Niveau', 
-    title='Distribution des offres par niveau',
-    hole=0.4, # Donne un style "Donut" plus moderne
-    color_discrete_sequence=px.colors.qualitative.Set3 # Palette de couleurs distinctes
-)
+# --- GRAPHIQUE CONTRAT ---
+with col1:
+    st.subheader("📄 Répartition des Contrats")
 
-# Affichage avec mise à jour du texte au survol
-fig_niveau.update_traces(textinfo='percent+label')
-st.plotly_chart(fig_niveau, width="stretch")
+    fig_contrat = px.pie(
+        df_filtered, 
+        names='Type_Contrat', 
+        title='Répartition par Type de Contrat',
+        hole=0.4,
+        color_discrete_sequence=px.colors.qualitative.Pastel
+    )
+
+    fig_contrat.update_layout(
+        margin=dict(l=20, r=20, t=90, b=160),
+        font=dict(size=taille_police),
+        legend=dict(
+            font=dict(size=taille_police),
+            orientation="h",   # Légende horizontale
+            yanchor="top",     
+            y=-0.5,            # On la place juste en dessous du graph
+            xanchor="center",  
+            x=0.5              # On la centre
+        ),
+        title=dict(
+            font=dict(size=taille_police + 2), # Le titre un peu plus gros par défaut
+            x=0.5
+        )
+    )
+
+    fig_contrat.update_traces(
+        textfont_size=taille_police # On force la taille des chiffres internes
+    )
+
+    st.plotly_chart(fig_contrat, width="stretch", height=500)
+
+# --- GRAPHIQUE EXP ---
+with col2:
+    st.subheader("🎓 Niveau de Séniorité Ciblé")
+
+    fig_niveau = px.pie(
+        df_filtered, 
+        names='Niveau', 
+        title='Niveau de Séniorité',
+        hole=0.4,
+        color_discrete_sequence=px.colors.qualitative.Set3
+    )
+
+    fig_niveau.update_layout(
+        margin=dict(l=20, r=20, t=90, b=160),
+        font=dict(size=taille_police),        
+        legend=dict(
+            font=dict(size=taille_police),
+            orientation="h",
+            yanchor="top",
+            y=-0.5,
+            xanchor="center",
+            x=0.5
+        ),
+        title=dict(
+            font=dict(size=taille_police + 2),
+            x=0.5
+        )
+    )
+
+    fig_niveau.update_traces(
+        textfont_size=taille_police
+    )
+
+    st.plotly_chart(fig_niveau, width="stretch", height=500)
 
 # --- TABLEAU DE DONNÉES ---
 st.markdown("---")
