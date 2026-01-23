@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import time
 import random
@@ -9,9 +10,57 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
+# --- FONCTION UTILITAIRE DE NETTOYAGE ---
+def extraire_id(url_brute):
+    """
+    Transforme n'importe quelle URL Apec en son ID unique.
+
+    """
+    if not isinstance(url_brute, str):
+        return ""
+    
+    # 1. On coupe tout ce qui dépasse après le ?
+    base = url_brute.split('?')[0]
+    
+    # 2. On enlève le dernier slash s'il y en a un (ex: .../123W/)
+    if base.endswith('/'):
+        base = base[:-1]
+        
+    # 3. On prend le dernier morceau après le dernier slash
+    id_offre = base.split('/')[-1]
+    
+    return id_offre.strip()
+
+# --- CHARGEMENT DE L'HISTORIQUE ---
+chemin_history = "data/enriched/offres_apec_full.csv"
+ids_connus = set()
+
+print("🔄 Chargement de l'historique...")
+if os.path.exists(chemin_history):
+    try:
+        df_history = pd.read_csv(chemin_history)
+        
+        # Recherche de la colonne URL
+        col_url = None
+        if 'URL' in df_history.columns:
+            col_url = 'URL'
+        if col_url:    
+            raw_urls = df_history[col_url].dropna().tolist()
+            ids_connus = set([extraire_id(u) for u in raw_urls])
+            print(f"🧠 Historique chargé et nettoyé : {len(ids_connus)} offres uniques en mémoire.")
+        else:
+            print("⚠️ Pas de colonne URL trouvée dans le fichier historique.")
+            
+    except Exception as e:
+        print(f"❌ Erreur lecture historique : {e}")
+else:
+    print("✨ Aucun historique trouvé, on part de zéro.")
+
+urls_trouvees_ce_jour = [] # On stockera ici les URLs propres trouvées aujourd'hui
+
 # --- CONFIGURATION ---
 URL_APEC = "https://www.apec.fr/candidat/recherche-emploi.html/emploi?motsCles=Data%20analyst"
-PAGES_A_SCRAPER = 35  # 5 pages = environ 100 offres (L'Apec met 20 offres par page)
+PAGES_A_SCRAPER = 38  # 5 pages = environ 100 offres (L'Apec met 20 offres par page)
 
 # --- INITIALISATION DU ROBOT ---
 options = webdriver.ChromeOptions()
@@ -20,7 +69,7 @@ options.add_argument("--disable-blink-features=AutomationControlled")
 
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 driver.set_window_size(1920, 1080)
-
+stop_scraping = False
 try:
     driver.get(URL_APEC)
     
@@ -34,12 +83,13 @@ try:
         print("✅ Cookies acceptés !")
         time.sleep(2)
     except:
-        print("⚠️ Pas de bannière cookie ou clic impossible (on continue quand même).")
-
-    all_offres = []
+        print("⚠️ Pas de bannière cookie ou clic impossible (on continue quand même).")    
     
     # --- BOUCLE DES PAGES ---
     for page in range(PAGES_A_SCRAPER):
+        if stop_scraping:
+            print("🛑 Arrêt demandé : historique rejoint (fin de la boucle des pages).")
+            break
         print(f"\nAnalyse de la page {page + 1} / {PAGES_A_SCRAPER}...")
         
         # On scroll un peu pour être sûr que tout charge
@@ -55,6 +105,8 @@ try:
         # On cherche tous les liens qui contiennent "/emploi/detail-offre/"
         liens_offres = soup.find_all('a', href=True)        
         count_page = 0
+        compteur_doublons = 0
+        SEUIL_TOLERANCE = 10 # On s'arrête seulement si on voit 3 doublons d'affilée
         for lien in liens_offres:
             url_partielle = lien['href']
             
@@ -65,33 +117,28 @@ try:
                 else:
                     full_url = "https://www.apec.fr" + url_partielle
                 
-                # Extraction du Titre (souvent dans un h3 ou h4 dans le lien)
-                titre_tag = lien.find(['h3', 'h4'])
-                if titre_tag:
-                    titre = titre_tag.get_text(strip=True)
+                id_actuel = extraire_id(full_url)
+                if (id_actuel not in ids_connus) and (full_url not in urls_trouvees_ce_jour):
+                    urls_trouvees_ce_jour.append(full_url)
+                    compteur_doublons = 0
+                    count_page += 1          
+
+                elif id_actuel in ids_connus:
+                    compteur_doublons += 1
+                    print(f"Doublon détecté ({compteur_doublons}/{SEUIL_TOLERANCE})")
+                    
+                    if compteur_doublons >= SEUIL_TOLERANCE:
+                        print("🛑 Trop de doublons, on arrête tout.")   
+                        stop_scraping = True                         
+                        break
                 else:
-                    # Si pas de balise titre, on prend le texte du lien
-                    titre = lien.get_text(strip=True)
-                
-                # Extraction Entreprise (Souvent dans une div "frère" ou parent, plus dur à choper génériquement)
-                # Pour l'instant on se concentre sur Titre + URL pour aller chercher les détails plus tard si besoin
-                
-                # Petit nettoyage du titre si c'est vide
-                if titre and len(titre) > 3:
-                    # On évite les doublons dans la liste actuelle
-                    if not any(d['URL'] == full_url for d in all_offres):
-                        all_offres.append({
-                            "Titre": titre,
-                            "URL": full_url,
-                            "Source": "Apec",
-                            "Date_Scraping": time.strftime("%Y-%m-%d")
-                        })
-                        count_page += 1
-        
-        print(f"   ✅ {count_page} offres trouvées sur cette page.")
+                    pass                
+                                   
+                                          
+        print(f"✅ {count_page} offres trouvées sur cette page.")
         
         # Passage à la page suivante
-        if page < PAGES_A_SCRAPER - 1:
+        if not stop_scraping and page < PAGES_A_SCRAPER - 1:
             try:
                 print("➡️ Recherche du bouton 'Suivant'...")
                 # On cherche une balise 'a' ou 'li' qui contient le texte "Suivant" ou qui a une classe spécifique
@@ -117,7 +164,7 @@ try:
                     
                     # On clique (via Javascript pour forcer le clic même si une pub gêne)
                     driver.execute_script("arguments[0].click();", lien_a_cliquer)
-                    print("   🖱️ Clic effectué ! Chargement...")
+                    print("🖱️ Clic effectué ! Chargement...")
                     time.sleep(5) # On attend bien que la nouvelle page charge
                 else:
                     print("🛑 Pas de pagination trouvée.")
@@ -141,8 +188,12 @@ finally:
     print("\n🤖 Robot rentré à la base.")
 
 # --- SAUVEGARDE ---
-print(f"📊 Bilan Apec : {len(all_offres)} offres récupérées.")
-if all_offres:
-    df = pd.DataFrame(all_offres)
-    df.to_csv("offres_apec.csv", index=False, encoding='utf-8')
-    print("💾 Sauvegardé dans 'offres_apec.csv'")
+
+if urls_trouvees_ce_jour:
+    # On écrase l'ancien fichier de liste de courses, on veut repartir à neuf
+    df_urls = pd.DataFrame(urls_trouvees_ce_jour, columns=["URL"])
+    df_urls.to_csv("offres_apec_url.csv", index=False)
+    print(f"✅ SUCCÈS : {len(urls_trouvees_ce_jour)} nouvelles URLs sauvegardées dans 'offres_apec_url.csv'.")
+    print("👉 Prochaine étape : Lancez scraper_apec.py")
+else:
+    print("Ø Aucune nouvelle offre détectée par rapport à l'historique.")
