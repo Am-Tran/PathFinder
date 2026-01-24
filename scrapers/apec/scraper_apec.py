@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 import time
 import random
 import os
+from datetime import datetime
 
 # --- 0. CONFIGURATION ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -17,32 +18,40 @@ project_root = os.path.dirname(os.path.dirname(current_dir))
 INPUT_CSV = os.path.join(project_root, "data", "raw", "offres_apec_url.csv")
 OUTPUT_CSV = os.path.join(project_root, "data", "enriched", "offres_apec_full.csv")
 
+ordre_colonnes = ["Titre", "Entreprise", "Ville", "Salaire_Brut", "Details_Tags", "Description_Complete", "URL", "Date", "Date_Expiration"]
+
 if not os.path.exists(INPUT_CSV):
     print(f"❌ ERREUR : {INPUT_CSV} introuvable.")
     exit()
 
-df_source = pd.read_csv(INPUT_CSV)
+df_source = pd.read_csv(INPUT_CSV, encoding='utf-8')
 print(f"✅ Chargement de {len(df_source)} offres APEC.")
 
 # Reprise automatique
 deja_faites = []
 if os.path.exists(OUTPUT_CSV):
     try:
-        df_exist = pd.read_csv(OUTPUT_CSV)
+        df_exist = pd.read_csv(OUTPUT_CSV, encoding='utf-8-sig')
+        if "Date_Expiration" not in df_exist.columns:
+            print("⚠️ Mise à jour du fichier historique : Ajout de la colonne 'Date_Expiration'...")
+            df_exist["Date_Expiration"] = "" 
+            df_exist = df_exist.reindex(columns=ordre_colonnes)
+            df_exist.to_csv(OUTPUT_CSV, index=False, encoding='utf-8-sig')
         if "URL" in df_exist.columns:
             deja_faites = df_exist["URL"].tolist()
             print(f"🔄 Reprise : {len(deja_faites)} offres déjà faites.")
     except:
+        print("⚠️ Fichier de sortie existant mais illisible ou vide.")
         pass
 else:
-    # Création du fichier vide
-    pd.DataFrame(columns=["Titre", "Entreprise", "Ville", "Salaire_Brut", "Details_Tags", "Description_Complete", "URL"]).to_csv(OUTPUT_CSV, index=False)
+    # Création du fichier vide    
+    pd.DataFrame(columns=ordre_colonnes).to_csv(OUTPUT_CSV, index=False, encoding='utf-8-sig')
 
 # --- 1. LE ROBOT ---
 options = webdriver.ChromeOptions()
 options.add_argument("--disable-blink-features=AutomationControlled")
 options.add_argument("--start-maximized")
-# options.add_argument("--headless") # Garde ça commenté pour voir le clic se faire !
+# options.add_argument("--headless")
 
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
@@ -88,28 +97,43 @@ def extraire_description(soup):
                 
     return meilleur_texte
 
+def extraire_date(soup):
+    try:
+    # Souvent dans une balise <span> ou <div> avec une classe "date"
+    # (Inspectez la page pour trouver la bonne classe, ex: 'date-publication')
+        date_element = soup.find('span', class_='date-offre')     
+        if date_element:
+            raw_date = date_element.get_text().strip()
+            # Nettoyage : Transforme "Publiée le 23/01/2026" en "23/01/2026"
+            date_clean = raw_date.replace("Publiée le", "").replace("Actualisée le", "").strip()
+        else:
+            date_clean = datetime.now().strftime("%d/%m/%Y")
+    except:
+        date_clean = time.strftime("%d/%m/%Y") # Fallback : Date d'aujourd'hui
+    return date_clean
+
 # --- 2. LA BOUCLE ---
 for index, row in df_source.iterrows():
     url = row['URL']
-    titre_csv = row['Titre']
+    titre_csv = 'Inconnu'
     
     if url in deja_faites:
         continue
     
     print(f"\n🔎 ({index + 1}/{len(df_source)}) {titre_csv}")
-    
+    # Init variables pour cette offre
+    date_expiration = "" # Vide par défaut
+    date_clean = datetime.now().strftime("%d/%m/%Y")
+    titre_reel = "Inconnu"
+    description = ""
     try:
         driver.get(url)
         
         # 🔨 ACTION : On tue les cookies dès l'arrivée (sur la 1ère page surtout)
         if index == 0 or index % 10 == 0: # On insiste au début et de temps en temps
-            if tuer_les_cookies(driver):
-                print("   🍪 Bannière Cookies fermée !")
+            tuer_les_cookies(driver)        
         
         time.sleep(random.uniform(4, 8))
-
-        # 🔨 TENTATIVE DE MEURTRE DE COOKIE
-        # On le tente à chaque fois pour être sûr, le script ne plantera pas si y'a rien
         tuer_les_cookies(driver)
         
         # Petit scroll pour charger le contenu (Lazy loading)
@@ -117,27 +141,35 @@ for index, row in df_source.iterrows():
         time.sleep(1)
         
         soup = BeautifulSoup(driver.page_source, 'html.parser')
+
+        # --- A. VERIFICATION EXPIRATION ---
+        # On extrait la description pour vérifier si l'offre est morte
+        description = extraire_description(soup)
+        
+        # [MODIFICATION ICI] Si l'offre est morte, on l'abandonne totalement
+        if "offre n'est plus en ligne" in description.lower() or "erreur inattendue" in description.lower():
+            print("🗑️  Offre expirée entre-temps. Ignorée (pas de sauvegarde).")
+            # On l'ajoute à la liste locale pour ne pas la retenter si la boucle continue
+            deja_faites.append(url)
+            continue
         
         # --- A. DONNÉES ---
         h1 = soup.find('h1')
         titre_reel = h1.get_text(strip=True) if h1 else titre_csv
         
         description = extraire_description(soup)
+        date_clean = extraire_date(soup)       
         
-        # Nettoyage si la description est un message d'erreur APEC
-        if "offre n'est plus en ligne" in description.lower() or "erreur inattendue" in description.lower():
-            description = "OFFRE_EXPIREE"
-
         # --- B. TAGS (Salaire / Ville) ---
         tags = []
         salaire_brut = "Non spécifié"
         ville = "Non spécifié"
+        entreprise = "Confidentiel"
         
         lis = soup.find_all('li')
         for li in lis:
             txt = li.get_text(strip=True)
-            if not txt: continue
-            
+            if not txt: continue            
             txt_low = txt.lower()
             # Salaire
             if ("€" in txt or "k€" in txt) and ("an" in txt_low or "brut" in txt_low):
@@ -152,15 +184,7 @@ for index, row in df_source.iterrows():
             
         details_concat = " | ".join(tags)
 
-        # --- SAUVEGARDE ---
-        # Si l'offre est expirée, on peut choisir de ne pas la garder, ou de la garder marquée
-        if description == "OFFRE_EXPIREE":
-            print("   🗑️ Offre expirée, on passe.")
-            # On l'ajoute quand même aux "déjà faites" pour ne pas boucler dessus si on relance
-            # Mais on ne l'écrit pas dans le CSV final (optionnel, ici je n'écris pas)
-            deja_faites.append(url) 
-            continue 
-
+        # --- SAUVEGARDE ---      
         nouvelle_ligne = {
             "Titre": titre_reel,
             "Entreprise": "Apec",
@@ -168,17 +192,19 @@ for index, row in df_source.iterrows():
             "Salaire_Brut": salaire_brut,
             "Details_Tags": details_concat,
             "Description_Complete": description,
-            "URL": url
+            "URL": url,
+            "Date" : date_clean,
+            "Date_Expiration" : "Offre active"
         }
         
-        df_new = pd.DataFrame([nouvelle_ligne])
-        df_new.to_csv(OUTPUT_CSV, mode='a', header=False, index=False)
+        df_new = pd.DataFrame([nouvelle_ligne], columns=ordre_colonnes)
+        df_new.to_csv(OUTPUT_CSV, mode='a', header=False, index=False, encoding='utf-8-sig')
         
-        print(f"   ✅ Sauvegardé (Desc: {len(description)} cars)")
-        if salaire_brut != "Non spécifié":
-            print(f"   💰 {salaire_brut}")
+        status_msg = "✅ Sauvegardé (Active)" if not date_expiration else "Sauvegardé (Expirée)"
+        print(f"{status_msg}")
 
     except Exception as e:
-        print(f"   ❌ Erreur : {e}")
+        print(f"❌ Erreur : {e}")
 
 driver.quit()
+print("\n🏁 Terminé ! Vérifiez data/enriched/offres_apec_full.csv")
