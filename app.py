@@ -5,13 +5,13 @@ import os
 from datetime import datetime
 import settings
 
+
 # --- CONFIGURATION DE LA PAGE ---
 st.set_page_config(
     page_title="PathFinder Job Market",
     page_icon="🚀",
     layout="wide"
 )
-
 
 # --- STYLE CUSTOM ---
 
@@ -20,7 +20,7 @@ settings.charger_style()
 # --- CHARGEMENT DES DONNÉES ---
 @st.cache_data
 def load_data():
-    file_path = "data/clean/global_job_market.csv"   
+    file_path = "data/clean/global_job_marketv2.csv"   
     if not os.path.exists(file_path):
         st.error(f"❌ Fichier introuvable : {file_path}")
         return None    
@@ -29,6 +29,8 @@ def load_data():
         df['Date_Publication'] = pd.to_datetime(df['Date_Publication'], errors='coerce')
         df['Date_Expiration'] = pd.to_datetime(df['Date_Expiration'], errors='coerce')
         return df
+
+        
     except Exception as e:
         st.error(f"Erreur de lecture : {e}")
         return None
@@ -337,13 +339,44 @@ with tab_actuel:
 
     # --- TABLEAU DE DONNÉES ---
     st.markdown("---")
-    st.subheader("📋 Explorateur d'Offres")    
-    st.dataframe(df_filtered[['Titre', 'Entreprise', 'Ville', 'Salaire_Annuel', 'Type_Contrat', 'Source', 'URL']], width="stretch")
+    with st.expander("📋 Explorateur d'Offres"):    
+        colonnes_a_afficher = [
+            'Titre', 'Entreprise', 'Ville', 
+            'Salaire_Min', 'Salaire_Max', 
+            'Type_Contrat', 'Date_Publication', 'Url'
+        ]
+    
+        # Sécurité : on ne garde que les colonnes qui existent vraiment dans le fichier
+        cols_final = [c for c in colonnes_a_afficher if c in df_active.columns]
+        
+        # 2. Affichage du Dataframe interactif
+        st.dataframe(
+            df_active[cols_final],
+            use_container_width=True, # Prend toute la largeur
+            hide_index=True,          # Cache la colonne d'index (0, 1, 2...)
+            
+            # 3. Configuration de l'affichage (Liens et Formats)
+            column_config={
+                "Url": st.column_config.LinkColumn(
+                    "Lien", display_text="Voir l'offre" # Remplace l'URL moche par un bouton texte
+                ),
+                "Salaire_Min": st.column_config.NumberColumn(
+                    "Min (k€)", format="%d k€" # Ajoute l'unité
+                ),
+                "Salaire_Max": st.column_config.NumberColumn(
+                    "Max (k€)", format="%d k€"
+                ),
+                "Date_Publication": st.column_config.DateColumn(
+                    "Date", format="DD/MM/YYYY" # Format français propre
+                ),
+            }
+    )
 
 # ====================================================================
 # ONGLET 2 : ANALYSE TEMPORELLE
 # ====================================================================
-with tab_trends:
+with tab_trends:  
+
     st.markdown("### ⏳ Historique et Tendances")
     #st.info("Cette vue inclut toutes les offres (actives et expirées) pour analyser l'évolution.")
     
@@ -354,152 +387,170 @@ with tab_trends:
     if not df_trends.empty:
         df_trends['Mois'] = df_trends['Date_Publication'].dt.to_period('M').astype(str)
 
-        # --- CALCUL DES KPIs HISTORIQUES ---
-    
-        # 1. Volume total sur la période
-        total_offres = len(df_trends)        
-        # 2. Nombre d'entreprises uniques
-        # On normalise un peu (strip/upper) pour éviter de compter "Google" et "GOOGLE " en double
-        nb_entreprises = df_trends['Entreprise'].str.strip().str.upper().nunique()
+        # =========================================================
+        # ✂️ FILTRE TEMPOREL (On coupe le début trop vide)
+        # =========================================================
+        # On s'assure que c'est bien un format date
+        df_trends['Date_Publication'] = pd.to_datetime(df_trends['Date_Publication'])
         
-        # 3. Durée de vie moyenne des offres (Vélocité)
-        # On ne garde que celles qui ont une date d'expiration (donc les offres finies/archivées)
-        df_finished = df_trends.dropna(subset=['Date_Expiration']).copy()
-        
-        if not df_finished.empty:
-            # Calcul de la différence en jours
-            df_finished['Duree_Vie'] = (df_finished['Date_Expiration'] - df_finished['Date_Publication']).dt.days
-            # On filtre les durées négatives (bugs de dates) ou nulles
-            avg_duree = df_finished[df_finished['Duree_Vie'] > 0]['Duree_Vie'].mean()
-            label_duree = f"{avg_duree:.0f} jours"
+        # On ne garde que ce qui est APRES start_date
+        start_date = '2025-08-01'
+        df_trends = df_trends[df_trends['Date_Publication'] >= start_date]
+        # =========================================================
+
+        # Si jamais le filtre est trop violent et qu'il ne reste rien :
+        if df_trends.empty:
+            st.warning(f"Pas assez de données après le {start_date} pour afficher les tendances.")
         else:
-            label_duree = "N/A"
 
-        # --- AFFICHAGE DU BANDEAU ---
-        st.markdown("---")
-        kpi1, kpi2, kpi3 = st.columns(3)
+    
 
-        kpi1.metric(
-            label="Volume Analysé",
-            value=f"{total_offres}",
-            help="Nombre total d'offres (actives et expirées) dans l'historique filtré."
-        )
-
-        kpi2.metric(
-            label="Entreprises Uniques",
-            value=f"{nb_entreprises}",
-            help="Nombre d'entreprises distinctes ayant publié au moins une offre."
-        )
-
-        kpi3.metric(
-            label="Durée de vie moyenne",
-            value=label_duree,
-            help="Temps moyen entre la publication et l'expiration d'une offre."
-        )
+            # --- CALCUL DES KPIs HISTORIQUES ---
         
-        st.markdown("---")
-
-        # --- GRAPHIQUE VOLUME ---
-        st.markdown("#### 📈 Dynamique des Recrutements")
-        volume_par_mois = df_trends.groupby('Mois').size().reset_index(name='Nombre d\'offres')
-        
-        fig_evol = px.area(
-            volume_par_mois,
-            x='Mois',
-            y='Nombre d\'offres',
-            markers=True, 
-            title="Évolution du nombre d'offres publiées"
-            )
-        fig_evol.update_layout(
-            font=dict(size=taille_police),
-            title=dict(font=dict(size=taille_police + 2)),
-            xaxis=dict(tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
-            yaxis=dict(tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
-            hovermode="x unified"
-            )
-        st.plotly_chart(fig_evol, use_container_width=True)
-
-        st.divider() # Ligne de séparation visuelle
-
-        # --- ANALYSE DES STACKS ---
-        st.markdown("#### 🔥 Popularité des compétences Tech")
-        tech_series = df_trends['Tech_Stack'].dropna().str.split(', ').explode()
-        technos_dispo = sorted(tech_series.dropna().unique())
-
-        # --- Sélection par défaut ---
-        # On veut afficher Python et SQL par défaut, MAIS seulement s'ils existent dans la liste
-        # (Sinon ça plante si tu filtres sur un métier qui n'utilise pas Python)
-        default_choices = ["Python", "SQL", "Power BI", "Excel", "Tableau"]
-        valid_defaults = [t for t in default_choices if t in technos_dispo]
-
-        # --- Multiselect ---
-        selected_techs = st.multiselect(
-            "Comparer les technos :", 
-            technos_dispo, 
-            default=valid_defaults
-        )
-
-        # --- Boucle de calcul ---
-        if selected_techs:
-            # On prépare l'index avec tous les mois
-            all_months = sorted(df_trends['Mois'].unique())
-            data_tech = pd.DataFrame(index=all_months)
-
-            for tech in selected_techs:
-                # On utilise la colonne Tech_Stack
-                mask = df_trends['Tech_Stack'].str.contains(tech, case=False, regex=False, na=False)
-                counts = df_trends[mask].groupby('Mois').size()
-                data_tech[tech] = counts
-
-            data_tech = data_tech.fillna(0)           
+            # 1. Volume total sur la période
+            total_offres = len(df_trends)        
+            # 2. Nombre d'entreprises uniques
+            # On normalise un peu (strip/upper) pour éviter de compter "Google" et "GOOGLE " en double
+            nb_entreprises = df_trends['Entreprise'].str.strip().str.upper().nunique()
             
-            fig_tech = px.line(
-                data_tech, 
-                markers=True, 
-                title="Évolution des technologies demandées",
-                height=650
+            # 3. Durée de vie moyenne des offres (Vélocité)
+            # On ne garde que celles qui ont une date d'expiration (donc les offres finies/archivées)
+            df_finished = df_trends.dropna(subset=['Date_Expiration']).copy()
+            
+            if not df_finished.empty:
+                # Calcul de la différence en jours
+                df_finished['Duree_Vie'] = (df_finished['Date_Expiration'] - df_finished['Date_Publication']).dt.days
+                # On filtre les durées négatives (bugs de dates) ou nulles
+                avg_duree = df_finished[df_finished['Duree_Vie'] > 0]['Duree_Vie'].mean()
+                label_duree = f"{avg_duree:.0f} jours"
+            else:
+                label_duree = "N/A"
+
+            # --- AFFICHAGE DU BANDEAU ---
+            st.markdown("---")
+            kpi1, kpi2, kpi3 = st.columns(3)
+
+            kpi1.metric(
+                label="Volume Analysé",
+                value=f"{total_offres}",
+                help="Nombre total d'offres (actives et expirées) dans l'historique filtré."
             )
-            fig_tech.update_layout(
+
+            kpi2.metric(
+                label="Entreprises Uniques",
+                value=f"{nb_entreprises}",
+                help="Nombre d'entreprises distinctes ayant publié au moins une offre."
+            )
+
+            kpi3.metric(
+                label="Durée de vie moyenne",
+                value=label_duree,
+                help="Temps moyen entre la publication et l'expiration d'une offre."
+            )
+            
+            st.markdown("---")
+
+            # --- GRAPHIQUE VOLUME ---
+            st.markdown("#### 📈 Dynamique des Recrutements")
+            volume_par_mois = df_trends.groupby('Mois').size().reset_index(name='Nombre d\'offres')
+            
+            fig_evol = px.area(
+                volume_par_mois,
+                x='Mois',
+                y='Nombre d\'offres',
+                markers=True, 
+                title="Évolution du nombre d'offres publiées"
+                )
+            fig_evol.update_layout(
                 font=dict(size=taille_police),
                 title=dict(font=dict(size=taille_police + 2)),
-                xaxis=dict(title="Mois", tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
-                yaxis=dict(title="Nombre d'offres", tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
-                legend=dict(font=dict(size=taille_police)),
+                xaxis=dict(tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
+                yaxis=dict(tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
                 hovermode="x unified"
+                )
+            st.plotly_chart(fig_evol, use_container_width=True)
+
+            st.divider() # Ligne de séparation visuelle
+
+            # --- ANALYSE DES STACKS ---
+            st.markdown("#### 🔥 Popularité des compétences Tech")
+            tech_series = df_trends['Tech_Stack'].dropna().str.split(', ').explode()
+            technos_dispo = sorted(tech_series.dropna().unique())
+
+            # --- Sélection par défaut ---
+            # On veut afficher Python et SQL par défaut, MAIS seulement s'ils existent dans la liste
+            # (Sinon ça plante si tu filtres sur un métier qui n'utilise pas Python)
+            default_choices = ["Python", "SQL", "Power BI", "Excel", "Tableau"]
+            valid_defaults = [t for t in default_choices if t in technos_dispo]
+
+            # --- Multiselect ---
+            selected_techs = st.multiselect(
+                "Comparer les technos :", 
+                technos_dispo, 
+                default=valid_defaults
             )
 
-            st.plotly_chart(fig_tech, use_container_width=True)
+            # --- Boucle de calcul ---
+            if selected_techs:
+                # On prépare l'index avec tous les mois
+                all_months = sorted(df_trends['Mois'].unique())
+                data_tech = pd.DataFrame(index=all_months)
 
-            st.divider() # Séparation visuelle
-           
-            # --- GRAPHIQUE TYPES DE CONTRATS ---
+                for tech in selected_techs:
+                    # On utilise la colonne Tech_Stack
+                    mask = df_trends['Tech_Stack'].str.contains(tech, case=False, regex=False, na=False)
+                    counts = df_trends[mask].groupby('Mois').size()
+                    data_tech[tech] = counts
+
+                data_tech = data_tech.fillna(0)           
+                
+                fig_tech = px.line(
+                    data_tech, 
+                    markers=True, 
+                    title="Évolution des technologies demandées",
+                    height=650
+                )
+                fig_tech.update_layout(
+                    font=dict(size=taille_police),
+                    title=dict(font=dict(size=taille_police + 2)),
+                    xaxis=dict(title="Mois", tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
+                    yaxis=dict(title="Nombre d'offres", tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
+                    legend=dict(font=dict(size=taille_police)),
+                    hovermode="x unified"
+                )
+
+                st.plotly_chart(fig_tech, use_container_width=True)
+
+                st.divider() # Séparation visuelle
             
-            st.markdown("#### 📜 Évolution des Types de Contrats")
+                # --- GRAPHIQUE TYPES DE CONTRATS ---
+                
+                st.markdown("#### 📜 Évolution des Types de Contrats")
 
-            # 1. Préparation des données (Pivot pour gérer les mois vides)
-            # On groupe par Mois et Contrat, puis on 'unstack' pour avoir les contrats en colonnes
-            # fill_value=0 est CRUCIAL : si un mois n'a pas de "Stage", ça met 0 au lieu de rien
-            evol_contrat = df_trends.groupby(['Mois', 'Type_Contrat']).size().unstack(fill_value=0)
+                # 1. Préparation des données (Pivot pour gérer les mois vides)
+                # On groupe par Mois et Contrat, puis on 'unstack' pour avoir les contrats en colonnes
+                # fill_value=0 est CRUCIAL : si un mois n'a pas de "Stage", ça met 0 au lieu de rien
+                evol_contrat = df_trends.groupby(['Mois', 'Type_Contrat']).size().unstack(fill_value=0)
 
-            # 2. Création du graphique Plotly
-            fig_contrat = px.line(
-                evol_contrat, 
-                markers=True, 
-                title="Répartition des contrats dans le temps",
-                height=600 # Une hauteur moyenne suffit ici
-            )
+                # 2. Création du graphique Plotly
+                fig_contrat = px.line(
+                    evol_contrat, 
+                    markers=True, 
+                    title="Répartition des contrats dans le temps",
+                    height=600 # Une hauteur moyenne suffit ici
+                )
 
-            # 3. Application du style (Cohérent avec les autres graphs)
-            fig_contrat.update_layout(
-                font=dict(size=taille_police),
-                title=dict(font=dict(size=taille_police + 2)),
-                xaxis=dict(title="Mois", tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
-                yaxis=dict(title="Nombre d'offres", tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
-                legend=dict(title="Type de Contrat", font=dict(size=taille_police)),
-                hovermode="x unified"
-            )
+                # 3. Application du style (Cohérent avec les autres graphs)
+                fig_contrat.update_layout(
+                    font=dict(size=taille_police),
+                    title=dict(font=dict(size=taille_police + 2)),
+                    xaxis=dict(title="Mois", tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
+                    yaxis=dict(title="Nombre d'offres", tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
+                    legend=dict(title="Type de Contrat", font=dict(size=taille_police)),
+                    hovermode="x unified"
+                )
 
-            st.plotly_chart(fig_contrat, use_container_width=True)
+                st.plotly_chart(fig_contrat, use_container_width=True)
     else:
         st.info("Sélectionnez au moins une compétence pour voir l'évolution.")
             
