@@ -11,6 +11,20 @@ st.set_page_config(
     layout="wide"
 )
 
+
+# --- STYLE CUSTOM ---
+
+st.markdown("""
+<style>
+    /* 1. On cible les boutons des onglets (tabs) */
+    button[data-baseweb="tab"] {
+        background-color: #f0000; /* Gris clair par défaut */        
+        margin-right: 30px;        /* ⬅️ C'EST ICI : Écart entre les boutons */
+        
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # --- CHARGEMENT DES DONNÉES ---
 @st.cache_data
 def load_data():
@@ -34,7 +48,7 @@ if df is None:
 
 # --- TITRE ---
 st.title("🔎 PathFinder : Analyse du Marché Data")
-st.markdown(f"**{len(df)}** offres analysées provenant de **France Travail, APEC et Welcome to the Jungle**.")
+st.markdown(f"**{len(df)}** offres analysées provenant de **France Travail, APEC** et **Welcome to the Jungle**.")
 
 # --- SIDEBAR (FILTRES) ---
 #st.sidebar.header("Filtres").venv
@@ -61,23 +75,15 @@ selected_contrat = choix_contrat if choix_contrat else contrat_list
 
 # 3. Filtre Ville (Top 20)
 top_villes = df['Ville'].value_counts().head(20).index.tolist()
+ville_list = df['Ville'].dropna().unique().tolist()
 
-choix_villes = st.sidebar.multiselect(
+choix_ville = st.sidebar.multiselect(
     "Filtrer par Ville", 
     top_villes, 
-    default=[], # On laisse vide au départ pour ne pas surcharger
-    placeholder="Toutes les villes (cliquez pour filtrer)"
+    default=[], 
+    placeholder="Toutes les villes"
 )
-
-# LOGIQUE INTELLIGENTE :
-# Si la liste est vide, on prend TOUT. Sinon, on prend la sélection.
-if not choix_villes:
-    selected_ville = top_villes # On garde tout le monde
-    st.sidebar.caption("🌍 *Toutes les villes affichées*")
-else:
-    selected_ville = choix_villes
-    st.sidebar.caption(f"📍 *{len(choix_villes)} ville(s) filtrée(s)*")
-
+selected_ville = choix_ville if choix_ville else ville_list
 
 # 4. Filtre Niveau
 ordre_niveaux = ["Stage / Alternance", "Junior", "Confirmé", "Senior", "Non spécifié"]
@@ -111,7 +117,7 @@ df_filtered = df[
 ]
 # Affichage du nombre de résultats en temps réel dans la sidebar
 st.sidebar.markdown("---")
-st.sidebar.metric(label="Offres filtrées", value=len(df_filtered))
+
 
 if df_filtered.empty:
     st.warning("Aucune offre ne correspond à ces critères.")
@@ -135,9 +141,18 @@ with tab_actuel:
     df_salaires = df_active[df_active['Salaire_Annuel'].notna()]
     salaire_moyen = df_salaires['Salaire_Annuel'].mean()
 
-    col1.metric("Offres affichées", nb_offres)
-    col2.metric("Salaire Moyen Estimé", f"{salaire_moyen:,.0f} €" if nb_offres > 0 and not pd.isna(salaire_moyen) else "N/A")
-    col3.metric("Offres avec salaire affiché", f"{len(df_salaires)}")
+    col1.metric("Offres affichées",
+                nb_offres,
+                help="Nombre d'offres actuellement en ligne (non expirées) correspondant à vos filtres de la barre latérale."
+                )
+    col2.metric("Salaire Moyen Estimé",
+                f"{salaire_moyen:,.0f} €" if nb_offres > 0 and not pd.isna(salaire_moyen) else "N/A",
+                help="Moyenne des salaires bruts annuels extraits. Pour les fourchettes (ex: 40-50k), la valeur moyenne est utilisée."
+                )
+    col3.metric("Offres avec salaire affiché",
+                f"{len(df_salaires)}",
+                help="Nombre d'offres qui mentionnent explicitement un salaire. Le salaire moyen est calculé uniquement sur cet échantillon."
+                )
 
     # --- GRAPHE REPARTITION PAR VILLE ---
     st.markdown("---")
@@ -348,7 +363,53 @@ with tab_trends:
     if not df_trends.empty:
         df_trends['Mois'] = df_trends['Date_Publication'].dt.to_period('M').astype(str)
 
+        # --- CALCUL DES KPIs HISTORIQUES ---
+    
+        # 1. Volume total sur la période
+        total_offres = len(df_trends)        
+        # 2. Nombre d'entreprises uniques
+        # On normalise un peu (strip/upper) pour éviter de compter "Google" et "GOOGLE " en double
+        nb_entreprises = df_trends['Entreprise'].str.strip().str.upper().nunique()
+        
+        # 3. Durée de vie moyenne des offres (Vélocité)
+        # On ne garde que celles qui ont une date d'expiration (donc les offres finies/archivées)
+        df_finished = df_trends.dropna(subset=['Date_Expiration']).copy()
+        
+        if not df_finished.empty:
+            # Calcul de la différence en jours
+            df_finished['Duree_Vie'] = (df_finished['Date_Expiration'] - df_finished['Date_Publication']).dt.days
+            # On filtre les durées négatives (bugs de dates) ou nulles
+            avg_duree = df_finished[df_finished['Duree_Vie'] > 0]['Duree_Vie'].mean()
+            label_duree = f"{avg_duree:.0f} jours"
+        else:
+            label_duree = "N/A"
+
+        # --- AFFICHAGE DU BANDEAU ---
+        st.markdown("---")
+        kpi1, kpi2, kpi3 = st.columns(3)
+
+        kpi1.metric(
+            label="Volume Analysé",
+            value=f"{total_offres}",
+            help="Nombre total d'offres (actives et expirées) dans l'historique filtré."
+        )
+
+        kpi2.metric(
+            label="Entreprises Uniques",
+            value=f"{nb_entreprises}",
+            help="Nombre d'entreprises distinctes ayant publié au moins une offre."
+        )
+
+        kpi3.metric(
+            label="Durée de vie moyenne",
+            value=label_duree,
+            help="Temps moyen entre la publication et l'expiration d'une offre."
+        )
+        
+        st.markdown("---")
+
         # --- GRAPHIQUE VOLUME ---
+        st.markdown("#### 📈 Dynamique des Recrutements")
         volume_par_mois = df_trends.groupby('Mois').size().reset_index(name='Nombre d\'offres')
         
         fig_evol = px.line(
@@ -412,7 +473,7 @@ with tab_trends:
                 title=dict(font=dict(size=taille_police + 2)),
                 xaxis=dict(title="Mois", tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
                 yaxis=dict(title="Nombre d'offres", tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
-                legend=dict(font=dict(size=taille_police)), # On gère aussi la taille de la légende
+                legend=dict(font=dict(size=taille_police)),
                 hovermode="x unified"
             )
 
