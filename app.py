@@ -258,7 +258,7 @@ with tab_actuel:
         # Met le texte (nombre) à l'extérieur de la barre pour la lisibilité
         fig_stack.update_traces(textfont_size=taille_police, textposition='outside')
 
-        st.plotly_chart(fig_stack, use_container_width=True)
+        st.plotly_chart(fig_stack, width="stretch")
     else:
         st.info("Aucune compétence technique détectée dans les offres sélectionnées.")
 
@@ -352,7 +352,7 @@ with tab_actuel:
         # 2. Affichage du Dataframe interactif
         st.dataframe(
             df_active[cols_final],
-            use_container_width=True, # Prend toute la largeur
+            width="stretch", # Prend toute la largeur
             hide_index=True,          # Cache la colonne d'index (0, 1, 2...)
             
             # 3. Configuration de l'affichage (Liens et Formats)
@@ -468,7 +468,7 @@ with tab_trends:
                 yaxis=dict(tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
                 hovermode="x unified"
                 )
-            st.plotly_chart(fig_evol, use_container_width=True)
+            st.plotly_chart(fig_evol, width="stretch")
 
             st.divider() # Ligne de séparation visuelle
 
@@ -519,7 +519,7 @@ with tab_trends:
                     hovermode="x unified"
                 )
 
-                st.plotly_chart(fig_tech, use_container_width=True)
+                st.plotly_chart(fig_tech, width="stretch")
 
                 st.divider() # Séparation visuelle
             
@@ -550,7 +550,7 @@ with tab_trends:
                     hovermode="x unified"
                 )
 
-                st.plotly_chart(fig_contrat, use_container_width=True)
+                st.plotly_chart(fig_contrat, width="stretch")
     else:
         st.info("Sélectionnez au moins une compétence pour voir l'évolution.")
             
