@@ -273,8 +273,8 @@ with tab_actuel:
             df_active, 
             names='Type_Contrat', 
             title='Répartition par Type de Contrat',
-            hole=0.4,
-            color_discrete_sequence=px.colors.qualitative.Pastel
+            hole=0.4,            
+            color_discrete_sequence=settings.palette_c
         )
 
         fig_contrat.update_layout(
@@ -309,7 +309,7 @@ with tab_actuel:
             names='Niveau', 
             title='Niveau de Séniorité',
             hole=0.4,
-            color_discrete_sequence=px.colors.qualitative.Set3
+            color_discrete_sequence=settings.palette_b
         )
 
         fig_niveau.update_layout(
@@ -337,8 +337,7 @@ with tab_actuel:
 
     # --- TABLEAU DE DONNÉES ---
     st.markdown("---")
-    st.subheader("📋 Explorateur d'Offres")
-    # CORRECTION ICI
+    st.subheader("📋 Explorateur d'Offres")    
     st.dataframe(df_filtered[['Titre', 'Entreprise', 'Ville', 'Salaire_Annuel', 'Type_Contrat', 'Source', 'URL']], width="stretch")
 
 # ====================================================================

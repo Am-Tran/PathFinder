@@ -1,55 +1,41 @@
 import streamlit as st
 
 # Palette 1 : "Corporate" (Sérieux, tons bleus/gris/froids)
-PALETTE_CORPORATE = [
+palette_a = [
     "#2c3e50", # Bleu nuit
-    "#3498db", # Bleu clair
-    "#95a5a6", # Gris
-    "#e74c3c", # Rouge (pour le contraste)
-    "#34495e", # Ardoise
+    "#3498db", # Bleu clair    
+    "#ff7675", # Rouge Doux
+    "#00b894", # Vert Menthe
+    "#f1c40f", # Jaune
     "#1abc9c", # Turquoise
-    "#ecf0f1", # Blanc cassé
+    "#9864d3", # Blanc cassé
     "#bdc3c7"  # Argent
 ]
 
 # Palette 2 : "Vibrant" (Pop, moderne, très contrasté)
-PALETTE_VIBRANT = [
-    "#6c5ce7", # Violet
-    "#00b894", # Vert menthe
-    "#fdcb6e", # Moutarde
-    "#e17055", # Corail
-    "#d63031", # Rouge vif
-    "#0984e3", # Bleu électrique
-    "#e84393", # Rose
-    "#2d3436"  # Anthracite
+palette_b = [
+    "#DB4B4B", # Rouge Rosé
+    "#EFF86E", # Jaune Citron pâle
+    "#A7BCFF", # Bleu Pervenche
+    "#FFBA74",  # Orange Abricot
+    "#75FFFE", # Cyan Électrique
+    "#B96229", # Orange Brûlé / Bronze
+    "#EF5580", # Rose Framboise    
+    "#A0E9FA" # Bleu Ciel Glacé
 ]
 
-# Palette 3 : "Pastel" (Doux, lisible, apaisant)
-PALETTE_PASTEL = [
-    "#81ecec", # Cyan pâle
+# Palette 3
+palette_c = [
+    "#4BDBDB", # Cyan
     "#a29bfe", # Lavande
-    "#ffeaa7", # Crème
+    "#f8dc7f", # Crème
     "#fab1a0", # Pêche
     "#ff7675", # Saumon
-    "#dfe6e9", # Gris perle
-    "#74b9ff", # Bleu ciel
-    "#55efc4"  # Menthe pâle
+    "#2980b9", # Bleu Pro
+    "#55efc4",  # Menthe pâle
+    "#74b9ff" # Bleu ciel
 ]
 
-# Palette 3 : "Pastel" (Doux, lisible, apaisant)
-PALETTE_PASTEL = [
-    "#2980b9", # Bleu Pro
-    "#00b894", # Vert Menthe
-    "#ff7675", # Rouge Doux
-    "#2d3436", # Gris Sombre
-    "#e17055", # Orange Vif
-    "#f1c40f", # Jaune
-    "#2ecc71", # Vert
-    "#9b59b6"  # Violet
-    "#3498db", # Bleu
-    "#1abc9c", # Turquoise
-    "#e74c3c"  # Rouge
-]
 
 # Fonction utilitaire pour mapper une palette à une liste de catégories
 def get_color_map(categories, palette):
