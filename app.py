@@ -19,8 +19,10 @@ st.markdown("""
     /* 1. On cible les boutons des onglets (tabs) */
     button[data-baseweb="tab"] {
         background-color: #f0000; /* Gris clair par défaut */        
-        margin-right: 30px;        /* ⬅️ C'EST ICI : Écart entre les boutons */
-        
+        margin-right: 30px;        /* ⬅️ C'EST ICI : Écart entre les boutons */        
+    }
+    div[data-baseweb="tab-panel"] {
+        padding-top: 40px; /* Tu peux augmenter à 40px ou 50px si tu veux plus d'air */
     }
 </style>
 """, unsafe_allow_html=True)
@@ -478,6 +480,37 @@ with tab_trends:
             )
 
             st.plotly_chart(fig_tech, use_container_width=True)
+
+            st.divider() # Séparation visuelle
+           
+            # --- GRAPHIQUE TYPES DE CONTRATS ---
+            
+            st.markdown("#### 📜 Évolution des Types de Contrats")
+
+            # 1. Préparation des données (Pivot pour gérer les mois vides)
+            # On groupe par Mois et Contrat, puis on 'unstack' pour avoir les contrats en colonnes
+            # fill_value=0 est CRUCIAL : si un mois n'a pas de "Stage", ça met 0 au lieu de rien
+            evol_contrat = df_trends.groupby(['Mois', 'Type_Contrat']).size().unstack(fill_value=0)
+
+            # 2. Création du graphique Plotly
+            fig_contrat = px.line(
+                evol_contrat, 
+                markers=True, 
+                title="Répartition des contrats dans le temps",
+                height=600 # Une hauteur moyenne suffit ici
+            )
+
+            # 3. Application du style (Cohérent avec les autres graphs)
+            fig_contrat.update_layout(
+                font=dict(size=taille_police),
+                title=dict(font=dict(size=taille_police + 2)),
+                xaxis=dict(title="Mois", tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
+                yaxis=dict(title="Nombre d'offres", tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
+                legend=dict(title="Type de Contrat", font=dict(size=taille_police)),
+                hovermode="x unified"
+            )
+
+            st.plotly_chart(fig_contrat, use_container_width=True)
     else:
         st.info("Sélectionnez au moins une compétence pour voir l'évolution.")
             
