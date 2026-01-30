@@ -7,7 +7,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
 
 # Chemins (Adapter si ton script n'est pas dans un sous-dossier scrapers/...)
-INPUT_CSV = os.path.join(project_root, "data", "enriched", "offres_francetravail_complet.csv")
+INPUT_CSV = os.path.join(project_root, "data", "enriched", "offres_francetravail_full.csv")
 OUTPUT_CSV = os.path.join(project_root, "data", "clean", "offres_francetravail_clean.csv")
 
 print(f"🧹 Démarrage du nettoyage pour : {INPUT_CSV}")
@@ -143,6 +143,13 @@ df['Salaire_Annuel_Estime'] = df['Salaire'].apply(nettoyer_salaire)
 # Description (Pour lecture facile)
 df['Description_Propre'] = df['Description'].apply(nettoyer_texte)
 
+# Date expiration
+if 'Date_Expiration' not in df.columns:
+    df['Date_Expiration'] = None
+else:
+    # On s'assure que c'est propre (pas de "nan" string)
+    df['Date_Expiration'] = df['Date_Expiration'].replace({'nan': None, 'NaN': None, '': None})
+
 # --- 5. STATISTIQUES RAPIDES ---
 nb_salaires = df['Salaire_Annuel_Estime'].notna().sum()
 moyenne_salaire = df['Salaire_Annuel_Estime'].mean()
@@ -157,7 +164,7 @@ if nb_salaires > 0:
 colonnes_finales = [
     'Titre', 'Entreprise', 'Ville_Clean', 'Departement', 
     'Type_Contrat', 'Salaire_Annuel_Estime', 'Date_Publication', 
-    'URL', 'Description_Propre', 'Source'
+    'URL', 'Description_Propre', 'Date_Expiration', 'Source'
 ]
 
 # On filtre si certaines colonnes n'existent pas (sécurité)

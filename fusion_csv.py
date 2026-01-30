@@ -95,6 +95,10 @@ def determiner_niveau(row):
 
 # --- 2. CHARGEMENT ET STANDARDISATION ---
 dataframes = []
+cols_globales = [
+    "Titre", "Entreprise", "Ville", "Salaire_Annuel", "Type_Contrat", 
+    "Teletravail", "Date_Publication", "Date_Expiration", "Source", "URL", "Description"
+]
 
 # --- A. FRANCE TRAVAIL ---
 if os.path.exists(FILE_FT):
@@ -104,17 +108,15 @@ if os.path.exists(FILE_FT):
     df_ft = df_ft.rename(columns={
         "Ville_Clean": "Ville",
         "Salaire_Annuel_Estime": "Salaire_Annuel",
-        "Description_Propre": "Description",
-        "Date_Publication": "Date"
+        "Description_Propre": "Description"
     })
     # Ajout colonnes manquantes
     df_ft["Teletravail"] = "Non spécifié" 
-    # Sélection stricte des colonnes
-    cols = ["Titre", "Entreprise", "Ville", "Salaire_Annuel", "Type_Contrat", "Teletravail", "Date", "Source", "URL", "Description"]
+    
     # On gère si certaines colonnes manquent dans le CSV source
-    for c in cols:
+    for c in cols_globales:
         if c not in df_ft.columns: df_ft[c] = None
-    dataframes.append(df_ft[cols])
+    dataframes.append(df_ft[cols_globales])
 else:
     print("⚠️ Fichier France Travail introuvable !")
 
@@ -133,10 +135,9 @@ if os.path.exists(FILE_WTTJ):
     df_wttj["Source"] = "Welcome to the Jungle"
     df_wttj["Date"] = datetime.today().strftime('%Y-%m-%d')
     
-    cols = ["Titre", "Entreprise", "Ville", "Salaire_Annuel", "Type_Contrat", "Teletravail", "Date", "Source", "URL", "Description"]
-    for c in cols:
+    for c in cols_globales:
         if c not in df_wttj.columns: df_wttj[c] = None
-    dataframes.append(df_wttj[cols])
+    dataframes.append(df_wttj[cols_globales])
 else:
     print("⚠️ Fichier WTTJ introuvable !")
 
@@ -148,17 +149,16 @@ if os.path.exists(FILE_APEC):
     df_apec = df_apec.rename(columns={
         "Ville_Clean": "Ville",
         "Salaire_Annuel_Estime": "Salaire_Annuel",
-        "Description_Propre": "Description"
+        "Description_Propre": "Description",
+        "Date": "Date_Publication"
     })
     
-    df_apec["Source"] = "Apec"
-    df_apec["Date"] = datetime.today().strftime('%Y-%m-%d')
+    df_apec["Source"] = "Apec"    
     df_apec["Teletravail"] = "Non spécifié"
     
-    cols = ["Titre", "Entreprise", "Ville", "Salaire_Annuel", "Type_Contrat", "Teletravail", "Date", "Source", "URL", "Description"]
-    for c in cols:
+    for c in cols_globales:
         if c not in df_apec.columns: df_apec[c] = None
-    dataframes.append(df_apec[cols])
+    dataframes.append(df_apec[cols_globales])
 else:
     print("⚠️ Fichier APEC introuvable !")
 
@@ -222,6 +222,54 @@ print(f"🧹 Doublons supprimés : {len_avant - len_apres}")
 print("🧠 Calcul des niveaux d'expérience (Analyse Salaires & Texte)...")
 # On applique la fonction ligne par ligne (axis=1)
 df_final['Niveau'] = df_final.apply(determiner_niveau, axis=1)
+
+# === STACKS ===
+
+keywords = {
+        "Python": r"\bpython\b",
+        "SQL": r"\bsql\b",
+        "Excel": r"\bexcel\b",
+        "Power BI": r"power\s?bi", # Accepte "PowerBI" ou "Power BI"
+        "Tableau": r"\btableau\b",
+        "R": r"\bR\b",             # Attention, peut capter "R&D", mais souvent OK
+        "SAS": r"\bsas\b",
+        "VBA": r"\bvba\b",
+        "AWS": r"\baws\b",
+        "Azure": r"\bazure\b",
+        "GCP": r"\bgcp\b|google\scloud",
+        "Spark": r"\bspark\b",
+        "Hadoop": r"\bhadoop\b",
+        "Kafka": r"\bkafka\b",
+        "Airflow": r"\bairflow\b",
+        "Snowflake": r"\bsnowflake\b",
+        "Databricks": r"\bdatabricks\b",
+        "Docker": r"\bdocker\b",
+        "Kubernetes": r"\bkubernetes\b|k8s",
+        "Git": r"\bgit\b",
+        "Linux": r"\blinux\b",
+        "Pandas": r"\bpandas\b",
+        "TensorFlow": r"\btensorflow\b",
+        "PyTorch": r"\bpytorch\b",
+        "Scikit-learn": r"scikit[\s\-]learn|sklearn",
+        "Java": r"\bjava\b",       # Exclut Javascript grâce aux \b
+        "Scala": r"\bscala\b",
+        "C++": r"\bc\+\+",
+        "NoSQL": r"no\s?sql|mongo|cassandra",
+        "Dbt": r"\bdbt\b"
+    }
+
+def detecter_stack(description):
+    if pd.isna(description): return ""
+    desc_lower = str(description).lower()
+    found = []
+    for tech, pattern in keywords.items():        
+        if re.search(pattern, desc_lower):
+            found.append(tech)
+            
+    return ", ".join(found)
+
+print("🧠 Analyse des compétences Tech...")
+df_final['Tech_Stack'] = df_final['Description'].apply(detecter_stack)
 
 # --- 4. SAUVEGARDE ---
 df_final.to_csv(OUTPUT_CSV, index=False)

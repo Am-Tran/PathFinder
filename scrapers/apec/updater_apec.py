@@ -17,7 +17,7 @@ project_root = os.path.dirname(os.path.dirname(current_dir))
 CSV_PATH = os.path.join(project_root, "data", "enriched", "offres_apec_full.csv")
 
 # Ordre des colonnes pour la réécriture propre
-ORDRE_COLONNES = ["Date", "Date_Expiration", "Titre", "Entreprise", "Ville", "Salaire_Brut", "Details_Tags", "Description_Complete", "URL"]
+ordre_colonnes = ["Titre", "Entreprise", "Ville", "Salaire_Brut", "Details_Tags", "Description_Complete", "URL", "Date", "Date_Expiration"]
 
 if not os.path.exists(CSV_PATH):
     print("❌ Pas de fichier historique trouvé. Lancez d'abord le scraper.")
@@ -37,7 +37,7 @@ print(f"📊 Total offres : {len(df)}")
 print(f"🕵️  Offres actives à vérifier : {len(indices_a_verifier)}")
 
 if len(indices_a_verifier) == 0:
-    print("✅ Toutes vos offres sont déjà marquées expirées. Rien à faire.")
+    print("✅ Toutes vos offres expirées sont déjà marquées . Rien à faire.")
     exit()
 
 # --- ROBOT ---
@@ -57,6 +57,7 @@ print("\n🚀 Démarrage de la mise à jour des statuts...")
 
 compteur_morts = 0
 compteur_vivants = 0
+compteur_doutes = 0
 modifications = False
 
 try:
@@ -76,51 +77,62 @@ try:
                 time.sleep(1)
             
             # Pause très courte (on veut juste voir si le texte charge)
-            time.sleep(random.uniform(1.5, 2.5))
+            time.sleep(random.uniform(3, 5))
             
             soup = BeautifulSoup(driver.page_source, 'html.parser')
             text_page = soup.get_text().lower()
             
-            # --- DIAGNOSTIC VITAL ---
-            est_morte = False
-            
-            # 1. Message explicite Apec
-            if "cette offre n'est plus en ligne" in text_page:
-                est_morte = True
-            # 2. Redirection ou erreur générique
-            elif "erreur inattendue" in text_page:
-                est_morte = True
-            
-            if est_morte:
+            # --- LOGIQUE DE DIAGNOSTIC ---
+            # 1. Signes positifs
+            signes_vie = ["postuler", "candidater", "sauvegarder cette offre"]
+            est_vivante = any(s in text_page for s in signes_vie)
+
+            # 2. Signes négatifs
+            signes_mort = [
+                "n'est plus en ligne",
+                "n'est plus disponible",
+                "n'existe plus"                
+            ]
+            est_morte_certaine = any(s in text_page for s in signes_mort)
+
+            # --- DÉCISION ---
+            if est_vivante:
+                print("✅ VIVANTE (Confirmée)")
+                compteur_vivants += 1
+
+            elif est_morte_certaine:
                 date_jour = datetime.now().strftime("%d/%m/%Y")
                 df.at[idx, 'Date_Expiration'] = date_jour
-                
-                # Optionnel : On peut marquer la description, mais attention à ne pas écraser l'info si vous voulez la garder pour l'analyse
-                # df.at[idx, 'Description_Complete'] = "OFFRE_EXPIREE" 
-                
-                print(f"❌ EXPIRÉE (Notée au {date_jour})")
+                print(f"❌ EXPIRÉE (Preuve trouvée)")
                 compteur_morts += 1
                 modifications = True
+
             else:
-                print("✅ VIVANTE")
-                compteur_vivants += 1
-            
-            # Sauvegarde intermédiaire tous les 20 items (sécurité)
-            if modifications and i > 0 and i % 20 == 0:
+                # ZONE GRISE : Ni vivante, ni morte explicite -> C'est louche (Bot detection ?)
+                # On ne touche pas à la date, on garde l'offre, mais on regarde pourquoi
+                print("⚠️ DOUTE (Ni bouton, ni message d'erreur -> On garde)")
+                
+                # Photo pour debug
+                nom_photo = f"debug_apec_{i}.png"
+                driver.save_screenshot(nom_photo)
+                print(f"   📸 Photo prise : {nom_photo}")
+
+            # Sauvegarde intermédiaire
+            if modifications and i > 0 and i % 10 == 0:
                 df.to_csv(CSV_PATH, index=False, encoding='utf-8-sig')
-                print("   💾 (Sauvegarde intermédiaire)")
                 modifications = False
-
         except Exception as e:
-            print(f"⚠️ Erreur tech : {e}")
+                    print(f"⚠️ Erreur tech : {e}")
 
+# --- GESTION DE L'ARRÊT MANUEL (CTRL+C) ---
 except KeyboardInterrupt:
     print("\n🛑 Arrêt manuel ! Sauvegarde de ce qui a été fait...")
 
+# --- FERMETURE PROPRE ---
 finally:
     # SAUVEGARDE FINALE
     # On s'assure de garder l'ordre des colonnes propre
-    df = df.reindex(columns=ORDRE_COLONNES)
+    df = df.reindex(columns=ordre_colonnes)
     df.to_csv(CSV_PATH, index=False, encoding='utf-8-sig')
     
     driver.quit()

@@ -1,0 +1,6 @@
+[theme]
+primaryColor = "#004aad"  # Ton Bleu Cobalt (boutons, sliders, liens)
+backgroundColor = "#FFFFFF" # Fond blanc (comme ton CV)
+secondaryBackgroundColor = "#F0F2F6" # Gris très clair (standard)
+textColor = "#000000" # Texte noir (pour la lisibilité)
+font = "sans serif"

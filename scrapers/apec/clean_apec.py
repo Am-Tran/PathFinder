@@ -184,7 +184,7 @@ if nb_salaires > 0:
 # --- 6. SAUVEGARDE ---
 colonnes_finales = [
     'Titre', 'Entreprise', 'Ville_Clean', 'Type_Contrat', 
-    'Salaire_Annuel_Estime', 'URL', 'Description_Propre'
+    'Salaire_Annuel_Estime', 'URL', 'Description_Propre', 'Date', 'Date_Expiration'
 ]
 
 df_clean['Source'] = 'Apec'

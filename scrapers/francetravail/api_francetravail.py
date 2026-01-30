@@ -1,12 +1,23 @@
 import requests
 import pandas as pd
 import time
+import os
+from dotenv import load_dotenv
 
 # --- 1. CONFIGURATION (Remplis tes infos) ---
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.dirname(os.path.dirname(current_dir))
+dotenv_path = os.path.join(root_dir, '.env')
+load_dotenv(dotenv_path)
+CLIENT_ID = os.getenv("FT_CLIENT_ID")
+CLIENT_SECRET = os.getenv("FT_CLIENT_SECRET")
 
-CLIENT_ID = "PAR_pathfinderanalysemarc_d2a6f0249b63cc1122d7b52fe6a12c48bd098b93cd80bde90943702f2ce7b776"
-CLIENT_SECRET = "9e6abdc6e428b944f234fb40b837f1883042461995b4926ddbf9a09f9109b5db"
-URL = "https://entreprise.pole-emploi.fr/connexion/oauth2/access_token?realm=/partenaire"
+if not CLIENT_ID or not CLIENT_SECRET:
+    print("❌ ERREUR : Clés France Travail introuvables. Vérifiez le fichier .env")
+    exit()
+
+nom_fichier = "offres_francetravail_full.csv"
+CSV_PATH = os.path.join(root_dir, "data", "enriched", nom_fichier)
 
 # --- 2. AUTHENTIFICATION (Récupération du Token) ---
 url_auth = "https://entreprise.francetravail.fr/connexion/oauth2/access_token?realm=%2Fpartenaire"
@@ -26,6 +37,26 @@ if resp_auth.status_code != 200:
 
 token = resp_auth.json()['access_token']
 print("✅ Token valide.")
+
+# --- 3. CHARGEMENT DE L'HISTORIQUE ---
+existing_ids = set()
+df_old = pd.DataFrame()
+
+if os.path.exists(CSV_PATH):
+    print(f"📂 Lecture du fichier existant : {CSV_PATH}")
+    df_old = pd.read_csv(CSV_PATH, dtype=str)
+    
+    # On essaye de trouver la colonne ID (souvent appelée 'id' ou 'Reference')
+    # Ajustez le nom si votre CSV a un nom de colonne différent pour l'identifiant
+    if 'id' in df_old.columns:
+        existing_ids = set(df_old['id'].tolist())
+    elif 'URL' in df_old.columns:
+        # Si on n'a pas l'ID, on extrait l'ID depuis l'URL (souvent à la fin)        
+        existing_ids = set(df_old['URL'].apply(lambda x: x.split('/')[-1] if isinstance(x, str) else ""))
+    
+    print(f"📚 {len(existing_ids)} offres déjà en mémoire (on ne les recopiera pas).")
+else:
+    print("✨ Aucun fichier existant, on commence à zéro.")
 
 # --- 3. LA BOUCLE DE RÉCUPÉRATION ---
 url_search = "https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search"
@@ -78,9 +109,11 @@ for mot in liste_mots_cles:
             for offre in resultats:
                 # DÉDOUBLONNAGE : On vérifie l'ID de l'offre
                 offer_id = offre.get('id')
-                
+                if offer_id in existing_ids:
+                    continue
                 if offer_id not in ids_recuperes:
                     info = {
+                    "id": offer_id,
                     "Titre": offre.get('intitule'),
                     "Entreprise": offre.get('entreprise', {}).get('nom', 'Confidentiel'),
                     "Ville": offre.get('lieuTravail', {}).get('libelle'),
@@ -89,7 +122,8 @@ for mot in liste_mots_cles:
                     "Date_Creation": offre.get('dateCreation'),
                     "URL": offre.get('origineOffre', {}).get('urlOrigine'),
                     "Description": offre.get('description'),
-                    "Source": "France Travail"
+                    "Source": "France Travail",
+                    "Date_Expiration": ""
                     }
                     all_offres_data.append(info)
                     ids_recuperes.add(offer_id)
@@ -119,9 +153,8 @@ for mot in liste_mots_cles:
 print(f"\n Bilan : {len(all_offres_data)} offres collectées au total.")
 
 if all_offres_data:
-    df = pd.DataFrame(all_offres_data)
-    nom_fichier = "offres_francetravail_complet.csv"
-    df.to_csv(nom_fichier, index=False, encoding='utf-8')
+    df = pd.DataFrame(all_offres_data)    
+    df.to_csv(CSV_PATH, index=False, encoding='utf-8')
     print(f"💾 Sauvegardé dans '{nom_fichier}'")
 else:
     print("⚠️ Rien à sauvegarder.")

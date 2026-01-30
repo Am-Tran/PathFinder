@@ -5,6 +5,30 @@ from bs4 import BeautifulSoup
 import time
 import random
 import pandas as pd
+import os
+from datetime import datetime
+
+# --- 1. CONFIGURATION DES CHEMINS ---
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(current_dir))
+CSV_PATH = os.path.join(project_root, "data", "raw", "offres_wttj_url.csv")
+
+# --- 2. CHARGEMENT DE L'HISTORIQUE ---
+urls_vues = set()
+data_existante = []
+
+if os.path.exists(CSV_PATH):
+    print(f"📂 Chargement de l'historique : {CSV_PATH}")
+    try:
+        df_old = pd.read_csv(CSV_PATH, dtype=str)
+        # On remplit la mémoire avec les URLs existantes
+        urls_vues = set(df_old['URL'].tolist())
+        data_existante = df_old.to_dict('records')
+        print(f"🧠 Mémoire chargée : {len(urls_vues)} offres déjà connues.")
+    except Exception as e:
+        print(f"⚠️ Erreur lecture fichier : {e}. On repart de zéro.")
+else:
+    print("✨ Aucun historique trouvé. On commence à zéro.")
 
 # --- CONFIGURATION ---
 options = webdriver.ChromeOptions()
@@ -16,8 +40,7 @@ driver.set_window_size(1920, 1080)
 
 # Variables globales
 page_number = 1
-data_global = []
-urls_vues = set()
+nouvelles_offres = []
 continuing = True
 
 print("🐢 Mode 'Tortue' activé : On va prendre notre temps pour ne pas se faire repérer.")
@@ -54,19 +77,22 @@ while continuing:
         
         # Le filtre
         if href and '/companies/' in href and '/jobs/' in href and len(texte.strip()) > 0:
-            full_url = "https://www.welcometothejungle.com" + href
-            titre = " ".join(texte.split())
+            full_url = "https://www.welcometothejungle.com" + href            
             
             if full_url not in urls_vues:
-                data_global.append({
+                titre = " ".join(texte.split())
+                nouvelles_offres.append({
                     "Titre": titre,
                     "URL": full_url,
                     "Page": page_number,
+                    "Date_Scrap": datetime.now().strftime("%Y-%m-%d"),
                     "Plateforme": "WTTJ"
                 })
                 urls_vues.add(full_url)
                 nb_offres_page += 1
                 # On print un petit point pour dire "je suis vivant" sans spammer
+                print("+", end="", flush=True)
+            else:
                 print(".", end="", flush=True)
 
     print(f"\n✅ Page {page_number} terminée : {nb_offres_page} nouvelles offres récupérées.")
@@ -80,9 +106,7 @@ while continuing:
         # On prépare la page suivante
         page_number += 1
         
-        # 6. GRANDE PAUSE ENTRE LES PAGES
-        # C'est ici qu'on est "généreux". On attend entre 8 et 15 secondes avant de changer de page.
-        # Ça laisse le temps au serveur d'oublier notre précédente requête.
+        # 6. PAUSE ENTRE LES PAGES        
         wait_time = random.uniform(8, 15)
         print(f"☕ Pause café de {wait_time:.1f} secondes avant la suite...")
         time.sleep(wait_time)
@@ -90,12 +114,23 @@ while continuing:
 # --- SAUVEGARDE FINALE ---
 driver.quit()
 
-print(f"\n Bilan Total : {len(data_global)} offres récupérées sur {page_number} pages.")
+print(f"\n Bilan Total : {len(nouvelles_offres)} offres récupérées sur {page_number} pages.")
 
-if len(data_global) > 0:
-    df = pd.DataFrame(data_global)
-    nom_fichier = "offres_wttj_complet.csv"
-    df.to_csv(nom_fichier, index=False, encoding='utf-8')
-    print(f" Sauvegardé dans {nom_fichier}")
+if len(nouvelles_offres) > 0:
+    df_new = pd.DataFrame(nouvelles_offres)    
+    if data_existante:
+                df_old = pd.DataFrame(data_existante)                
+                df_final = pd.concat([df_old, df_new], ignore_index=True)
+    else:
+        df_final = df_new
+        
+    # Sauvegarde
+    # On s'assure que le dossier existe
+    os.makedirs(os.path.dirname(CSV_PATH), exist_ok=True)
+    
+    df_final.to_csv(CSV_PATH, index=False, encoding='utf-8-sig')
+    print(f"✅ Base mise à jour avec succès : {len(df_final)} offres au total.")
+    print(f"📁 Fichier : {CSV_PATH}")
+            
 else:
-    print("❌ Rien trouvé.")
+    print("🤷 Aucune nouvelle offre à sauvegarder.")
