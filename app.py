@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import os
 from datetime import datetime
+import settings
 
 # --- CONFIGURATION DE LA PAGE ---
 st.set_page_config(
@@ -14,18 +15,7 @@ st.set_page_config(
 
 # --- STYLE CUSTOM ---
 
-st.markdown("""
-<style>
-    /* 1. On cible les boutons des onglets (tabs) */
-    button[data-baseweb="tab"] {
-        background-color: #f0000; /* Gris clair par défaut */        
-        margin-right: 30px;        /* ⬅️ C'EST ICI : Écart entre les boutons */        
-    }
-    div[data-baseweb="tab-panel"] {
-        padding-top: 40px; /* Tu peux augmenter à 40px ou 50px si tu veux plus d'air */
-    }
-</style>
-""", unsafe_allow_html=True)
+settings.charger_style()
 
 # --- CHARGEMENT DES DONNÉES ---
 @st.cache_data
@@ -414,7 +404,7 @@ with tab_trends:
         st.markdown("#### 📈 Dynamique des Recrutements")
         volume_par_mois = df_trends.groupby('Mois').size().reset_index(name='Nombre d\'offres')
         
-        fig_evol = px.line(
+        fig_evol = px.area(
             volume_par_mois,
             x='Mois',
             y='Nombre d\'offres',
