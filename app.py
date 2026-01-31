@@ -494,13 +494,14 @@ with tab_trends:
             # --- Boucle de calcul ---
             if selected_techs:
                 # On prépare l'index avec tous les mois
-                all_months = sorted(df_trends['Mois'].unique())
-                data_tech = pd.DataFrame(index=all_months)
+                #all_months = sorted(df_trends['Mois'].unique())
+                all_weeks = sorted(df_trends['Semaine'].unique())
+                data_tech = pd.DataFrame(index=all_weeks)
 
                 for tech in selected_techs:
                     # On utilise la colonne Tech_Stack
                     mask = df_trends['Tech_Stack'].str.contains(tech, case=False, regex=False, na=False)
-                    counts = df_trends[mask].groupby('Mois').size()
+                    counts = df_trends[mask].groupby('Semaine').size()
                     data_tech[tech] = counts
 
                 data_tech = data_tech.fillna(0)           
@@ -531,7 +532,7 @@ with tab_trends:
                 # 1. Préparation des données (Pivot pour gérer les mois vides)
                 # On groupe par Mois et Contrat, puis on 'unstack' pour avoir les contrats en colonnes
                 # fill_value=0 est CRUCIAL : si un mois n'a pas de "Stage", ça met 0 au lieu de rien
-                evol_contrat = df_trends.groupby(['Mois', 'Type_Contrat']).size().unstack(fill_value=0)
+                evol_contrat = df_trends.groupby(['Semaine', 'Type_Contrat']).size().unstack(fill_value=0)
 
                 # 2. Création du graphique Plotly
                 fig_contrat = px.line(
@@ -545,7 +546,7 @@ with tab_trends:
                 fig_contrat.update_layout(
                     font=dict(size=taille_police),
                     title=dict(font=dict(size=taille_police + 2)),
-                    xaxis=dict(title="Mois", tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
+                    xaxis=dict(title="Semaine", tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
                     yaxis=dict(title="Nombre d'offres", tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
                     legend=dict(title="Type de Contrat", font=dict(size=taille_police)),
                     hovermode="x unified"
