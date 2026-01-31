@@ -209,6 +209,11 @@ if not dataframes:
 print("🌪️  Mélange des données...")
 df_final = pd.concat(dataframes, ignore_index=True)
 
+# === CORRECTION DE L'ANCIENNETÉ (FIX DURÉE DE VIE) ===
+
+df_final['Date_Publication'] = pd.to_datetime(df_final['Date_Publication'], errors='coerce')
+df_final['Date_Publication'] = df_final.groupby('URL')['Date_Publication'].transform('min')
+
 # === LE NETTOYAGE ===
 
 print("✨ Nettoyage et Harmonisation des Contrats...")
