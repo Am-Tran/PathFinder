@@ -135,3 +135,4 @@ for i, idx in enumerate(indices_a_verifier):
 # --- FIN ---
 df.to_csv(CSV_PATH, index=False, encoding='utf-8-sig')
 print(f"\n🏁 FIN : {compteur_morts} expirées / {compteur_vivants} actives.")
+print("Fin de updater_francetravail ==> Lancer clean_francetravail")

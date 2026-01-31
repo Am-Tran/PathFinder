@@ -33,7 +33,7 @@ else:
 # --- CONFIGURATION ---
 options = webdriver.ChromeOptions()
 options.add_argument("--disable-blink-features=AutomationControlled")
-# options.add_argument("--headless")
+options.add_argument("--headless")
 
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 driver.set_window_size(1920, 1080)
@@ -131,6 +131,7 @@ if len(nouvelles_offres) > 0:
     df_final.to_csv(CSV_PATH, index=False, encoding='utf-8-sig')
     print(f"✅ Base mise à jour avec succès : {len(df_final)} offres au total.")
     print(f"📁 Fichier : {CSV_PATH}")
+    print("Fin du crawler_wttj ==> Lancer le scraper_wttj")
             
 else:
     print("🤷 Aucune nouvelle offre à sauvegarder.")

@@ -43,7 +43,7 @@ if len(indices_a_verifier) == 0:
 # --- ROBOT ---
 options = webdriver.ChromeOptions()
 options.add_argument("--disable-blink-features=AutomationControlled")
-# options.add_argument("--headless") # Décommentez pour exécuter sans fenêtre (plus rapide)
+options.add_argument("--headless") # Décommentez pour exécuter sans fenêtre (plus rapide)
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
 def tuer_cookies(driver):
@@ -140,3 +140,4 @@ finally:
     print(f"   ⚰️  Offres passées en 'Expirée' : {compteur_morts}")
     print(f"   ✅  Offres confirmées actives : {compteur_vivants}")
     print(f"   📂  Fichier mis à jour : {CSV_PATH}")
+    print("Fin de updater_apec ==> Lancer clean_apec")

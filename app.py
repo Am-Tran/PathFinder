@@ -20,7 +20,7 @@ settings.charger_style()
 # --- CHARGEMENT DES DONNÉES ---
 @st.cache_data
 def load_data():
-    file_path = "data/clean/global_job_marketv2.csv"   
+    file_path = "data/clean/global_job_market.csv"   
     if not os.path.exists(file_path):
         st.error(f"❌ Fichier introuvable : {file_path}")
         return None    
@@ -224,7 +224,7 @@ with tab_actuel:
     # 3. On trie pour que le .tail(10) prenne bien les plus grands
     stack_series = stack_series.sort_values(by='Mentions', ascending=True)  
 
-    # --- LE GRAPHIQUE---    
+    # --- LE GRAPHIQUE STACKS TECH---    
 
     if not stack_series.empty:
         fig_stack = px.bar(
@@ -340,37 +340,36 @@ with tab_actuel:
     # --- TABLEAU DE DONNÉES ---
     st.markdown("---")
     with st.expander("📋 Explorateur d'Offres"):    
+
         colonnes_a_afficher = [
-            'Titre', 'Entreprise', 'Ville', 
-            'Salaire_Min', 'Salaire_Max', 
-            'Type_Contrat', 'Date_Publication', 'Url'
+            'Titre', 
+            'Ville', 
+            'Type_Contrat', 
+            'Teletravail',
+            'Date_Publication', 
+            'URL'              # ou 'URL' selon ton fichier
         ]
-    
-        # Sécurité : on ne garde que les colonnes qui existent vraiment dans le fichier
         cols_final = [c for c in colonnes_a_afficher if c in df_active.columns]
-        
-        # 2. Affichage du Dataframe interactif
+
         st.dataframe(
-            df_active[cols_final],
-            width="stretch", # Prend toute la largeur
-            hide_index=True,          # Cache la colonne d'index (0, 1, 2...)
-            
-            # 3. Configuration de l'affichage (Liens et Formats)
-            column_config={
-                "Url": st.column_config.LinkColumn(
-                    "Lien", display_text="Voir l'offre" # Remplace l'URL moche par un bouton texte
-                ),
-                "Salaire_Min": st.column_config.NumberColumn(
-                    "Min (k€)", format="%d k€" # Ajoute l'unité
-                ),
-                "Salaire_Max": st.column_config.NumberColumn(
-                    "Max (k€)", format="%d k€"
-                ),
-                "Date_Publication": st.column_config.DateColumn(
-                    "Date", format="DD/MM/YYYY" # Format français propre
-                ),
-            }
-    )
+        df_active[cols_final],
+        width="stretch", # Prend toute la largeur
+        hide_index=True,          # Cache la colonne d'index (0, 1, 2...)
+        
+        # 3. Configuration de l'affichage (Liens et Formats)
+        column_config={
+            "Date_Publication": st.column_config.DateColumn(
+                "Date", 
+                format="DD/MM/YYYY"
+            ),
+            "URL": st.column_config.LinkColumn(
+                "🔗Lien", display_text="https://(.*?)/" # On garde simple pour l'instant
+            ),
+            # Optionnel : Renommer les en-têtes pour faire joli
+            "Type_Contrat": st.column_config.TextColumn("Contrat"),
+            "Teletravail": st.column_config.TextColumn("Télétravail"),
+        }
+        )
 
 # ====================================================================
 # ONGLET 2 : ANALYSE TEMPORELLE
@@ -383,9 +382,10 @@ with tab_trends:
     # 1. Évolution du volume d'offres par mois
     # On groupe par mois (M) sur la date de publication
     df_trends = df_filtered.dropna(subset=['Date_Publication']).copy()
+    df_trends['Date_Publication'] = pd.to_datetime(df_trends['Date_Publication'])
     
     if not df_trends.empty:
-        df_trends['Mois'] = df_trends['Date_Publication'].dt.to_period('M').astype(str)
+        df_trends['Mois'] = df_trends['Date_Publication'].dt.to_period('M').astype(str)        
 
         # =========================================================
         # ✂️ FILTRE TEMPOREL (On coupe le début trop vide)
@@ -394,7 +394,7 @@ with tab_trends:
         df_trends['Date_Publication'] = pd.to_datetime(df_trends['Date_Publication'])
         
         # On ne garde que ce qui est APRES start_date
-        start_date = '2025-08-01'
+        start_date = '2025-09-01'
         df_trends = df_trends[df_trends['Date_Publication'] >= start_date]
         # =========================================================
 
@@ -402,8 +402,8 @@ with tab_trends:
         if df_trends.empty:
             st.warning(f"Pas assez de données après le {start_date} pour afficher les tendances.")
         else:
-
-    
+            df_trends['Semaine'] = df_trends['Date_Publication'].dt.to_period('W').apply(lambda r: r.start_time)
+            df_weekly = df_trends.groupby('Semaine').size().reset_index(name="Nombre d'offres")
 
             # --- CALCUL DES KPIs HISTORIQUES ---
         
@@ -450,13 +450,14 @@ with tab_trends:
             
             st.markdown("---")
 
+           
             # --- GRAPHIQUE VOLUME ---
             st.markdown("#### 📈 Dynamique des Recrutements")
             volume_par_mois = df_trends.groupby('Mois').size().reset_index(name='Nombre d\'offres')
             
             fig_evol = px.area(
-                volume_par_mois,
-                x='Mois',
+                df_weekly,
+                x='Semaine',
                 y='Nombre d\'offres',
                 markers=True, 
                 title="Évolution du nombre d'offres publiées"

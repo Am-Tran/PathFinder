@@ -156,5 +156,6 @@ if all_offres_data:
     df = pd.DataFrame(all_offres_data)    
     df.to_csv(CSV_PATH, index=False, encoding='utf-8')
     print(f"💾 Sauvegardé dans '{nom_fichier}'")
+    print("Fin de api_francetravail ==> Lancer updater_francetravail")
 else:
     print("⚠️ Rien à sauvegarder.")

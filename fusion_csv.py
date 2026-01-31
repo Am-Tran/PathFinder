@@ -27,6 +27,23 @@ os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
 print("🧪 Démarrage de la fusion...")
 
 # --- FONCTION DE CLASSIFICATION (NIVEAU) ---
+
+def normaliser_date(date_str):
+    """Force le format AAAA-MM-JJ pour éviter les bugs Streamlit"""
+    if pd.isna(date_str) or date_str == "" or str(date_str).lower() == "nan":
+        return None
+    date_str = str(date_str).strip()
+    try:
+        # Tente le format français (31/01/2025)
+        return datetime.strptime(date_str, "%d/%m/%Y").strftime("%Y-%m-%d")
+    except ValueError:
+        try:
+            # Tente le format déjà ISO (2025-01-31)
+            return datetime.strptime(date_str, "%Y-%m-%d").strftime("%Y-%m-%d")
+        except ValueError:
+            return None
+        
+
 def determiner_niveau(row):
     """
     Déduit le niveau d'expérience (Etudiant, Junior, Confirmé, Senior) 
@@ -100,6 +117,20 @@ cols_globales = [
     "Teletravail", "Date_Publication", "Date_Expiration", "Source", "URL", "Description"
 ]
 
+
+# --- 0. CHARGEMENT DE L'HISTORIQUE (La nouveauté est ici) ---
+if os.path.exists(OUTPUT_CSV):
+    print(f"📜 Chargement de l'historique : {OUTPUT_CSV}")
+    try:
+        df_hist = pd.read_csv(OUTPUT_CSV)
+        # On normalise aussi l'historique pour être sûr
+        df_hist["Date_Publication"] = df_hist["Date_Publication"].apply(normaliser_date)
+        df_hist["Date_Expiration"] = df_hist["Date_Expiration"].apply(normaliser_date)
+        dataframes.append(df_hist)
+    except:
+        print("⚠️ Historique illisible, on repart de zéro.")
+
+
 # --- A. FRANCE TRAVAIL ---
 if os.path.exists(FILE_FT):
     print("🔹 Chargement France Travail...")
@@ -112,7 +143,10 @@ if os.path.exists(FILE_FT):
     })
     # Ajout colonnes manquantes
     df_ft["Teletravail"] = "Non spécifié" 
+    df_ft["Date_Publication"] = df_ft["Date_Publication"].apply(normaliser_date)
+    df_ft["Date_Expiration"] = df_ft["Date_Expiration"].apply(normaliser_date)
     
+
     # On gère si certaines colonnes manquent dans le CSV source
     for c in cols_globales:
         if c not in df_ft.columns: df_ft[c] = None
@@ -128,12 +162,14 @@ if os.path.exists(FILE_WTTJ):
     df_wttj = df_wttj.rename(columns={
         "Ville_Clean": "Ville",
         "Salaire_Annuel_Estime": "Salaire_Annuel",
-        "Description_Propre": "Description"
+        "Description_Propre": "Description",
+        "Date": "Date_Publication"
     })
     
     # Ajout Source et Date (Aujourd'hui)
     df_wttj["Source"] = "Welcome to the Jungle"
-    df_wttj["Date"] = datetime.today().strftime('%Y-%m-%d')
+    df_wttj["Date_Publication"] = df_wttj["Date_Publication"].apply(normaliser_date)    
+    df_wttj["Date_Expiration"] = df_wttj["Date_Expiration"].apply(normaliser_date)
     
     for c in cols_globales:
         if c not in df_wttj.columns: df_wttj[c] = None
@@ -155,6 +191,8 @@ if os.path.exists(FILE_APEC):
     
     df_apec["Source"] = "Apec"    
     df_apec["Teletravail"] = "Non spécifié"
+    df_apec["Date_Publication"] = df_apec["Date_Publication"].apply(normaliser_date)
+    df_apec["Date_Expiration"] = df_apec["Date_Expiration"].apply(normaliser_date)
     
     for c in cols_globales:
         if c not in df_apec.columns: df_apec[c] = None
@@ -213,7 +251,7 @@ for col in cols_text:
 
 # Suppression des doublons (basé sur l'URL)
 len_avant = len(df_final)
-df_final = df_final.drop_duplicates(subset=["URL"])
+df_final = df_final.drop_duplicates(subset=["URL"], keep='last')
 len_apres = len(df_final)
 
 print(f"🧹 Doublons supprimés : {len_avant - len_apres}")

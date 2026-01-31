@@ -24,7 +24,7 @@ if not os.path.exists(INPUT_CSV):
     print(f"❌ ERREUR : {INPUT_CSV} introuvable.")
     exit()
 
-df_source = pd.read_csv(INPUT_CSV, encoding='utf-8')
+df_source = pd.read_csv(INPUT_CSV, encoding='utf-8', header=None, names=['URL'])
 print(f"✅ Chargement de {len(df_source)} offres APEC.")
 
 # Reprise automatique
@@ -51,7 +51,7 @@ else:
 options = webdriver.ChromeOptions()
 options.add_argument("--disable-blink-features=AutomationControlled")
 options.add_argument("--start-maximized")
-# options.add_argument("--headless")
+options.add_argument("--headless")
 
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
@@ -208,3 +208,4 @@ for index, row in df_source.iterrows():
 
 driver.quit()
 print("\n🏁 Terminé ! Vérifiez data/enriched/offres_apec_full.csv")
+print("Fin de scraper_apec ==> Lancer updater_apec")

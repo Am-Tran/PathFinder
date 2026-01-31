@@ -53,7 +53,7 @@ else:
 # --- 3. LE ROBOT ---
 options = webdriver.ChromeOptions()
 options.add_argument("--disable-blink-features=AutomationControlled")
-# options.add_argument("--headless") # Laisse commenté pour surveiller
+options.add_argument("--headless") # Laisse commenté pour surveiller
 
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 driver.set_window_size(1920, 1080)
@@ -221,4 +221,5 @@ finally:
     if 'driver' in locals():
         driver.quit()
     print("\n🤖 Robot rentré au garage. Fin du programme.")
+    print("Fin du scraper_wttj ==> Lancer le updater_wttj")
 

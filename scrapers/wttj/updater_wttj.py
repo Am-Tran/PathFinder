@@ -44,7 +44,7 @@ if len(indices_a_verifier) == 0:
 # --- ROBOT ---
 options = webdriver.ChromeOptions()
 options.add_argument("--disable-blink-features=AutomationControlled")
-# options.add_argument("--headless") 
+options.add_argument("--headless") 
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 driver.set_window_size(1920, 1080)
 
@@ -126,3 +126,4 @@ finally:
     print("\n🏁 Bilan :")
     print(f"   ⚰️  Expirées : {compteur_morts}")
     print(f"   ✅  Actives : {compteur_vivants}")
+    print("Fin du updater_wttj ==> Lancer le clean_wttj")
