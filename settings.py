@@ -15,7 +15,7 @@ palette_a = [
 # Palette 15 : "Néon Glacé" (Électrique • Acidulé • Contrasté • Artificiel)
 palette_b = [
     "#DB4B4B", # Rouge Rosé
-    "#EFF86E", # Jaune Citron pâle
+    "#f1c40f", # Jaune Tournesol
     "#A7BCFF", # Bleu Pervenche
     "#FFBA74",  # Orange Abricot
     "#75FFFE", # Cyan Électrique
@@ -28,7 +28,7 @@ palette_b = [
 palette_c = [
     "#4BDBDB", # Cyan
     "#a29bfe", # Lavande
-    "#f8dc7f", # Crème
+    "#F7D065", # Sable d'or
     "#fab1a0", # Pêche
     "#ff7675", # Saumon
     "#2980b9", # Bleu Pro

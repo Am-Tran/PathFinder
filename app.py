@@ -398,7 +398,7 @@ with tab_trends:
         df_trends = df_trends[df_trends['Date_Publication'] >= start_date]
 
         # Marqueurs historiques
-        Date_debut = "2026-01-15"
+        Date_debut = "2026-01-26"
 
         # =========================================================
 
@@ -454,6 +454,7 @@ with tab_trends:
             
             st.markdown("---")
 
+            st.info("ℹ️ **Note de lecture :** Le pic observé fin janvier correspond à l'initialisation de la base de données (récupération de l'historique des offres actives).")
            
             # --- GRAPHIQUE VOLUME ---
             st.markdown("#### 📈 Dynamique des Recrutements")
@@ -464,7 +465,8 @@ with tab_trends:
                 x='Semaine',
                 y='Nombre d\'offres',
                 markers=True, 
-                title="Évolution du nombre d'offres publiées"
+                title="Évolution du nombre d'offres publiées",
+                color_discrete_sequence=settings.palette_c
                 )
             fig_evol.update_layout(
                 font=dict(size=taille_police),
@@ -477,17 +479,19 @@ with tab_trends:
                 x=Date_debut, 
                 line_width=2, 
                 line_dash="dash", 
-                line_color= "#55efc4"
+                line_color= "#2980b9"
                 )
             fig_evol.add_annotation(
                 x=Date_debut,
                 y=1.05, # Juste au-dessus du graphe
                 yref="paper", # Coordonnée relative (1.0 = haut du graphe)
-                text="Début du scraping",
+                text="Initialisation (Stock)",
                 showarrow=False,
-                font=dict(color="#55efc4", size=12)
+                font=dict(color="#2980b9", size=15)
                 )
             st.plotly_chart(fig_evol, width="stretch")
+
+            
 
             st.divider() # Ligne de séparation visuelle
 
@@ -528,6 +532,7 @@ with tab_trends:
                     data_tech, 
                     markers=True, 
                     title="Évolution des technologies demandées",
+                    color_discrete_sequence=settings.palette_c,
                     height=650
                 )
                 fig_tech.update_layout(
@@ -538,7 +543,21 @@ with tab_trends:
                     legend=dict(font=dict(size=taille_police)),
                     hovermode="x unified"
                 )
-
+                fig_tech.add_vline(
+                    x=Date_debut, 
+                    line_width=2, 
+                    line_dash="dash", 
+                    line_color= "#2980b9"
+                    )
+                fig_tech.add_annotation(
+                    x=Date_debut,
+                    y=1.05, # Juste au-dessus du graphe
+                    yref="paper", # Coordonnée relative (1.0 = haut du graphe)
+                    text="Initialisation (Stock)",
+                    showarrow=False,
+                    font=dict(color="#2980b9", size=15)
+                    )
+            
                 st.plotly_chart(fig_tech, width="stretch")
 
                 st.divider() # Séparation visuelle
@@ -557,6 +576,7 @@ with tab_trends:
                     evol_contrat, 
                     markers=True, 
                     title="Répartition des contrats dans le temps",
+                    color_discrete_sequence=settings.palette_b,
                     height=600 # Une hauteur moyenne suffit ici
                 )
 
@@ -569,6 +589,21 @@ with tab_trends:
                     legend=dict(title="Type de Contrat", font=dict(size=taille_police)),
                     hovermode="x unified"
                 )
+
+                fig_contrat.add_vline(
+                    x=Date_debut, 
+                    line_width=2, 
+                    line_dash="dash", 
+                    line_color= "#2980b9"
+                    )
+                fig_contrat.add_annotation(
+                    x=Date_debut,
+                    y=1.05, # Juste au-dessus du graphe
+                    yref="paper", # Coordonnée relative (1.0 = haut du graphe)
+                    text="Initialisation (Stock)",
+                    showarrow=False,
+                    font=dict(color="#2980b9", size=15)
+                    )
 
                 st.plotly_chart(fig_contrat, width="stretch")
     else:
