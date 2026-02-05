@@ -383,7 +383,7 @@ with tab_trends:
     # On groupe par mois (M) sur la date de publication
     df_trends = df_filtered.dropna(subset=['Date_Publication']).copy()
     df_trends['Date_Publication'] = pd.to_datetime(df_trends['Date_Publication'])
-    
+        
     if not df_trends.empty:
         df_trends['Mois'] = df_trends['Date_Publication'].dt.to_period('M').astype(str)        
 
@@ -396,6 +396,10 @@ with tab_trends:
         # On ne garde que ce qui est APRES start_date
         start_date = '2025-09-01'
         df_trends = df_trends[df_trends['Date_Publication'] >= start_date]
+
+        # Marqueurs historiques
+        Date_debut = "2026-01-15"
+
         # =========================================================
 
         # Si jamais le filtre est trop violent et qu'il ne reste rien :
@@ -468,6 +472,20 @@ with tab_trends:
                 xaxis=dict(tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
                 yaxis=dict(tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
                 hovermode="x unified"
+                )
+            fig_evol.add_vline(
+                x=Date_debut, 
+                line_width=2, 
+                line_dash="dash", 
+                line_color= "#55efc4"
+                )
+            fig_evol.add_annotation(
+                x=Date_debut,
+                y=1.05, # Juste au-dessus du graphe
+                yref="paper", # Coordonnée relative (1.0 = haut du graphe)
+                text="Début du scraping",
+                showarrow=False,
+                font=dict(color="#55efc4", size=12)
                 )
             st.plotly_chart(fig_evol, width="stretch")
 

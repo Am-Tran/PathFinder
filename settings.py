@@ -5,14 +5,14 @@ palette_a = [
     "#2c3e50", # Bleu nuit
     "#3498db", # Bleu clair    
     "#ff7675", # Rouge Doux
-    "#00b894", # Vert Menthe
-    "#f1c40f", # Jaune
     "#1abc9c", # Turquoise
+    "#f1c40f", # Jaune
+    "#165e4f", # Vert foncé
     "#9864d3", # Blanc cassé
-    "#bdc3c7"  # Argent
+    "#71bff3"  # Bleu clair
 ]
 
-# Palette 2 : "Vibrant" (Pop, moderne, très contrasté)
+# Palette 15 : "Néon Glacé" (Électrique • Acidulé • Contrasté • Artificiel)
 palette_b = [
     "#DB4B4B", # Rouge Rosé
     "#EFF86E", # Jaune Citron pâle
@@ -24,7 +24,7 @@ palette_b = [
     "#A0E9FA" # Bleu Ciel Glacé
 ]
 
-# Palette 3
+# Palette 16 : "Pastel Dynamique"
 palette_c = [
     "#4BDBDB", # Cyan
     "#a29bfe", # Lavande
