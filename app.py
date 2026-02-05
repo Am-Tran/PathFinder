@@ -487,7 +487,7 @@ with tab_trends:
                 yref="paper", # Coordonnée relative (1.0 = haut du graphe)
                 text="Initialisation (Stock)",
                 showarrow=False,
-                font=dict(color="#2980b9", size=15)
+                font=dict(color="#2980b9", size=taille_police)
                 )
             st.plotly_chart(fig_evol, width="stretch")
 
@@ -555,7 +555,7 @@ with tab_trends:
                     yref="paper", # Coordonnée relative (1.0 = haut du graphe)
                     text="Initialisation (Stock)",
                     showarrow=False,
-                    font=dict(color="#2980b9", size=15)
+                    font=dict(color="#2980b9", size=taille_police)
                     )
             
                 st.plotly_chart(fig_tech, width="stretch")
@@ -602,7 +602,7 @@ with tab_trends:
                     yref="paper", # Coordonnée relative (1.0 = haut du graphe)
                     text="Initialisation (Stock)",
                     showarrow=False,
-                    font=dict(color="#2980b9", size=15)
+                    font=dict(color="#2980b9", size=taille_police)
                     )
 
                 st.plotly_chart(fig_contrat, width="stretch")
