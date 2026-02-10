@@ -91,6 +91,18 @@ choix_niveau = st.sidebar.multiselect(
 )
 selected_niveau = choix_niveau if choix_niveau else niveau_list
 
+# --- Filtre Inclusion ---
+st.write("")
+st.write("")
+c1, c2 = st.sidebar.columns([0.5, 0.7])
+with c1:
+    # Ton titre (le margin-bottom réduit l'espace sous le titre pour l'alignement)
+    st.markdown("### ♿ Inclusion")
+
+with c2:
+    # label_visibility="hidden" cache le texte par défaut de la checkbox
+    rqth_only = st.checkbox("Inclusion", label_visibility="hidden")
+
 # --- PARAMÈTRES D'AFFICHAGE ---
 st.sidebar.markdown("---")
 st.sidebar.header("⚙️ Affichage")
@@ -109,8 +121,13 @@ df_filtered = df[
     (df['Ville'].isin(selected_ville)) &
     (df['Niveau'].isin(selected_niveau))
 ]
+
+if rqth_only:    
+    df_filtered = df_filtered[df_filtered['Handicap_Friendly'] == True]
+
+
 # Affichage du nombre de résultats en temps réel dans la sidebar
-st.sidebar.markdown("---")
+
 
 
 if df_filtered.empty:
