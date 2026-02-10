@@ -466,7 +466,7 @@ with tab_trends:
                 y='Nombre d\'offres',
                 markers=True, 
                 title="Évolution du nombre d'offres publiées",
-                color_discrete_sequence=settings.palette_c
+                color_discrete_sequence=["#ffba74"]               
                 )
             fig_evol.update_layout(
                 font=dict(size=taille_police),
