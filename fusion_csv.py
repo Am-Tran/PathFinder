@@ -26,7 +26,7 @@ os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
 
 print("🧪 Démarrage de la fusion...")
 
-# --- FONCTION DE CLASSIFICATION (NIVEAU) ---
+# --- FONCTIONS ---
 
 def normaliser_date(date_str):
     """Force le format AAAA-MM-JJ pour éviter les bugs Streamlit"""
@@ -43,6 +43,93 @@ def normaliser_date(date_str):
         except ValueError:
             return None
         
+def extraire_annees_exp(description):
+    """
+    Extrait le nombre d'années d'expérience du texte.
+    Renvoie un entier ou None.
+    """
+    if pd.isna(description): return None
+    description = description.lower()
+
+    annees = None
+    #pattern_a = r"(\d{1,2})\s*?(?:-|\s)?\s*?(?:ans|années|years|year).*?(?:exp|expérience|experience)"  
+    pattern_a = r"(\d{1,2})\s*(?:-|à)?\s*(?:\d{1,2})?\s*(?:ans|années|years).{0,20}exp"  
+    match_a = re.search(pattern_a, description)
+    #pattern_b = r"(?:exp|expérience|experience).{0,20}?(\d{1,2})"
+    pattern_b = r"exp.{0,20}(\d{1,2})\s*(?:ans|années|years)"
+    match_b = re.search(pattern_b, description)
+
+    if match_a:
+        try: annees = int(match_a.group(1))
+        except ValueError: pass
+    elif match_b:
+        try: annees = int(match_b.group(1))
+        except ValueError: pass
+        
+    # Filtre de sécurité pour éviter les chiffres aberrants
+    if annees is not None and (annees > 15 or annees < 0):
+        return None
+        
+    return annees
+
+def nettoyer_contrats(df):
+    """
+    Nettoie et standardise la colonne Type_Contrat.
+    1. Formate le texte (Capitalize)
+    2. Traduit les codes administratifs (Ddi -> CDD)
+    3. Corrige intelligemment selon le Titre (Si Titre='Stage' -> Contrat='Stage')
+    """
+    print("✨ Nettoyage et Harmonisation des Contrats...")
+    
+    # 1. Nettoyage de base : String + Strip + Capitalize
+    df["Type_Contrat"] = df["Type_Contrat"].astype(str).str.strip().str.capitalize()
+
+    # 2. Dictionnaire de traduction (Codes -> Libellés propres)
+    corrections_contrat = {
+        "Mis": "Intérim",
+        "Lib": "Freelance",
+        "Fra": "Freelance",
+        "Ind": "Freelance",
+        "Din": "CDI Intérimaire",
+        "Cdi": "CDI",
+        "Cdd": "CDD",
+        "Ddi": "CDD",  # Contrat à Durée Déterminée d'Insertion
+        "Cui": "CDD",  # Contrat Unique Insertion
+        "Cae": "CDD",  # Contrat d'accompagnement dans l'emploi
+        "Stage": "Stage / Alternance",
+        "Alternance": "Stage / Alternance",
+        "Apprentissage": "Stage / Alternance",
+        "Contrat pro": "Stage / Alternance",
+        "Stage / alternance": "Stage / Alternance",
+        "Professionalisation": "Stage / Alternance",
+        "Nan": "Non spécifié"
+    }
+    df["Type_Contrat"] = df["Type_Contrat"].replace(corrections_contrat)
+
+    # 3. CORRECTION INTELLIGENTE AVEC GARDE-FOU
+    print("🕵️‍♀️ Correction des contrats (Priorité à l'expérience réelle)...")
+    
+    # Liste précise avec word boundaries (\b)
+    regex_etudiants = r"\b(?:stage|stagiaire|internship|alternance|alternant|apprentissage|contrat pro|pfe)\b"    
+    mask_titre_etudiant = df['Titre'].astype(str).str.contains(regex_etudiants, case=False, regex=True, na=False)
+
+    regex_anti_stage = r"\b(?:senior|lead|manager|directeur|head of|chef de projet|international|freelance)\b"
+    mask_titre_senior = df['Titre'].astype(str).str.contains(regex_anti_stage, case=False, regex=True, na=False)
+    
+    # GARDE-FOU
+    mask_valid_stage = mask_titre_etudiant & ((df['Annees_Exp'].isna()) | (df['Annees_Exp'] < 2)) & (~mask_titre_senior)
+    mask_faux_stages = (df['Type_Contrat'] == "Stage / Alternance") & (mask_titre_senior | (df['Annees_Exp'] > 2))
+    
+    # On applique la correction SEULEMENT si le garde-fou est respecté
+    df.loc[mask_valid_stage, 'Type_Contrat'] = "Stage / Alternance"
+    df.loc[mask_faux_stages, 'Type_Contrat'] = "CDD"
+
+    # Correction Freelance
+    regex_freelance = r"\b(?:freelance|indépendant|independant|free-lance|b2b)\b"
+    mask_freelance = df['Titre'].astype(str).str.contains(regex_freelance, case=False, regex=True, na=False)
+    df.loc[mask_freelance, 'Type_Contrat'] = "Freelance"
+
+    return df    
 
 def determiner_niveau(row):
     """
@@ -50,17 +137,27 @@ def determiner_niveau(row):
     basé sur le salaire (distingue idf des autres zones) et les mots-clés du titre.
     """
     titre = str(row['Titre']).lower() if pd.notna(row['Titre']) else ""
-    desc = str(row['Description']).lower() if pd.notna(row['Description']) else "" 
+    # esc = str(row['Description']).lower() if pd.notna(row['Description']) else "" 
     lieu = str(row['Ville']).lower() if pd.notna(row['Ville']) else "" 
     salaire = row['Salaire_Annuel']
     contrat = str(row['Type_Contrat']).lower() if pd.notna(row['Type_Contrat']) else ""
+    annees = row['Annees_Exp']
 
-    # --- 2. DÉTECTION STAGE (Priorité absolue) ---
-    mots_stage = ["stage", "internship", "alternance", "alternant", "stagiaire", "apprentissage", "contrat pro"]
-    if any(k in contrat for k in mots_stage) or any(k in titre for k in mots_stage) or any(k in desc for k in mots_stage):
+    # --- EXTRACTION DES ANNÉES ---
+    
+    if pd.notna(annees):
+        if annees > 5: return "Senior"
+        if annees > 2: return "Confirmé"
+
+    # --- DÉTECTION STAGE ---
+
+    if any(k in titre for k in ["senior", "lead", "manager", "head of", "directeur", "expert", "principal", "vp", "chef"]):
+        return "Senior"
+    if "Stage" in contrat or "Alternance" in contrat:
         return "Stage / Alternance"
+    
 
-    # --- 3. DÉFINITION DES SEUILS SELON LA GÉOGRAPHIE ---
+    # --- DÉFINITION DES SEUILS SELON LA GÉOGRAPHIE ---
     # Liste des mots qui indiquent la région parisienne
     # Zone A : Paris & IDF
     mots_idf = ['paris', 'île-de-france', 'ile-de-france', 'boulogne', 'courbevoie', 'la défense', '92', '75', '93', '94']
@@ -81,34 +178,34 @@ def determiner_niveau(row):
         seuil_junior = 34000
         seuil_senior = 48000
 
-    # --- 4. LE VERDICT DU SALAIRE ---
+    # --- VERDICT DU SALAIRE ---
     if pd.notna(salaire) and salaire > 0:
         if salaire <= seuil_junior:
             return "Junior"
         elif seuil_junior < salaire < seuil_senior:
             return "Confirmé"
         else:
-            return "Senior"
-
-    # --- 5. FALLBACK : ANALYSE TEXTUELLE ---
+            return "Senior"    
+    
+    # --- PAR DEFAUT ---
+    if pd.notna(annees) and annees <= 2:
+        return "Junior"
+    
+    # --- FALLBACK : ANALYSE TEXTUELLE ---
     # (Titre)
-    if any(k in titre for k in ["senior", "lead", "manager", "head of", "directeur", "expert", "principal", "vp"]):
-        return "Senior"
+    
     if any(k in titre for k in ["junior", "débutant", "assistant", "graduate"]):
         return "Junior"
     if "confirmé" in titre:
-        return "Confirmé"
-
-    # (Description - Années)
-    pattern = r"(\d{1,2})\s*?(?:-|\s)?\s*?(?:ans|années|years|year)"
-    match = re.search(pattern, desc)
-    if match:
-        annees = int(match.group(1))
-        if annees < 3: return "Junior"
-        elif 3 <= annees <= 5: return "Confirmé"
-        else: return "Senior"
+        return "Confirmé"    
 
     return "Non spécifié"
+
+def detecter_rqth(text):
+    if pd.isna(text): return False
+    keywords = ["rqth", "handicap", "situation de handicap", "entreprise adaptée"]
+    return any(k in text.lower() for k in keywords)
+
 
 # --- 2. CHARGEMENT ET STANDARDISATION ---
 dataframes = []
@@ -214,25 +311,6 @@ df_final = pd.concat(dataframes, ignore_index=True)
 df_final['Date_Publication'] = pd.to_datetime(df_final['Date_Publication'], errors='coerce')
 df_final['Date_Publication'] = df_final.groupby('URL')['Date_Publication'].transform('min')
 
-# === LE NETTOYAGE ===
-
-print("✨ Nettoyage et Harmonisation des Contrats...")
-
-# 1. Nettoyage de base : String + Strip (enlève espaces) + Capitalize (Cdi, Stage, Cdd...)
-# Cela regroupe automatiquement "cdi", "CDI" et "Cdi" sous la forme "Cdi"
-df_final["Type_Contrat"] = df_final["Type_Contrat"].astype(str).str.strip().str.capitalize()
-
-# 2. Dictionnaire de traduction et remise en forme (Cdi -> CDI)
-# Note : Comme on a fait .capitalize() juste avant, "MIS" est devenu "Mis" et "LIB" est devenu "Lib"
-corrections_contrat = {
-    "Mis": "Intérim",
-    "Lib": "Freelance",
-    "Din": "CDI Intérimaire",
-    "Cdi": "CDI",  # On remet en majuscules
-    "Cdd": "CDD",  # On remet en majuscules
-    "Nan": "Non spécifié" # Gère les valeurs vides
-}
-
 print("🧹 Standardisation des grandes villes (Arrondissements)...")
 
 df_final['Ville'] = df_final['Ville'].astype(str).str.replace(r'(?i)^paris.*', 'Paris', regex=True)
@@ -244,7 +322,7 @@ df_final['Ville'] = df_final['Ville'].str.replace(r'(?i)^marseille.*', 'Marseill
 # df_final['Ville'] = df_final['Ville'].replace(['Courbevoie', 'Puteaux', 'Nanterre'], 'La Défense')
 
 # 3. Application des corrections
-df_final["Type_Contrat"] = df_final["Type_Contrat"].replace(corrections_contrat)
+
 print("✨ Nettoyage des guillemets résiduels...")
 cols_text = ['Titre', 'Entreprise', 'Ville']
 for col in cols_text:
@@ -260,6 +338,12 @@ df_final = df_final.drop_duplicates(subset=["URL"], keep='last')
 len_apres = len(df_final)
 
 print(f"🧹 Doublons supprimés : {len_avant - len_apres}")
+
+# === NETTOYAGE CONTRATS ===
+
+print("🧮 Extraction des années d'expérience...")
+df_final['Annees_Exp'] = df_final['Description'].apply(extraire_annees_exp)
+df_final = nettoyer_contrats(df_final)
 
 # === CALCUL DU NIVEAU D'EXPÉRIENCE ===
 print("🧠 Calcul des niveaux d'expérience (Analyse Salaires & Texte)...")
@@ -313,6 +397,8 @@ def detecter_stack(description):
 
 print("🧠 Analyse des compétences Tech...")
 df_final['Tech_Stack'] = df_final['Description'].apply(detecter_stack)
+
+df_final['Handicap_Friendly'] = df_final['Description'].apply(detecter_rqth)
 
 # --- 4. SAUVEGARDE ---
 df_final.to_csv(OUTPUT_CSV, index=False)
