@@ -3,7 +3,10 @@ import os
 from datetime import datetime
 import re
 
-# --- 1. CONFIGURATION ---
+# ------------------------------------------------------------------------------------------------------------------------------------------------------
+
+# --- CONFIGURATION ---
+
 # On se place dynamiquement
 current_dir = os.path.dirname(os.path.abspath(__file__))
 # Si le script est dans un sous-dossier, on remonte. Sinon on reste là.
@@ -26,6 +29,8 @@ os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
 
 print("🧪 Démarrage de la fusion...")
 
+# ======================================================================================================================================================
+
 # --- FONCTIONS ---
 
 def normaliser_date(date_str):
@@ -42,7 +47,8 @@ def normaliser_date(date_str):
             return datetime.strptime(date_str, "%Y-%m-%d").strftime("%Y-%m-%d")
         except ValueError:
             return None
-        
+# --------------------------------------------------        
+
 def extraire_annees_exp(description):
     """
     Extrait le nombre d'années d'expérience du texte.
@@ -71,6 +77,7 @@ def extraire_annees_exp(description):
         return None
         
     return annees
+# --------------------------------------------------
 
 def nettoyer_contrats(df):
     """
@@ -106,7 +113,7 @@ def nettoyer_contrats(df):
     }
     df["Type_Contrat"] = df["Type_Contrat"].replace(corrections_contrat)
 
-    # 3. CORRECTION INTELLIGENTE AVEC GARDE-FOU
+    # 3. Correction avec garde-fou
     print("🕵️‍♀️ Correction des contrats (Priorité à l'expérience réelle)...")
     
     # Liste précise avec word boundaries (\b)
@@ -116,7 +123,7 @@ def nettoyer_contrats(df):
     regex_anti_stage = r"\b(?:senior|lead|manager|directeur|head of|chef de projet|international|freelance)\b"
     mask_titre_senior = df['Titre'].astype(str).str.contains(regex_anti_stage, case=False, regex=True, na=False)
     
-    # GARDE-FOU
+    # Garde-fou
     mask_valid_stage = mask_titre_etudiant & ((df['Annees_Exp'].isna()) | (df['Annees_Exp'] < 2)) & (~mask_titre_senior)
     mask_faux_stages = (df['Type_Contrat'] == "Stage / Alternance") & (mask_titre_senior | (df['Annees_Exp'] > 2))
     
@@ -130,6 +137,7 @@ def nettoyer_contrats(df):
     df.loc[mask_freelance, 'Type_Contrat'] = "Freelance"
 
     return df    
+# --------------------------------------------------
 
 def determiner_niveau(row):
     """
@@ -143,13 +151,13 @@ def determiner_niveau(row):
     contrat = str(row['Type_Contrat']).lower() if pd.notna(row['Type_Contrat']) else ""
     annees = row['Annees_Exp']
 
-    # --- EXTRACTION DES ANNÉES ---
+    # 1. Extraction des années
     
     if pd.notna(annees):
         if annees > 5: return "Senior"
         if annees > 2: return "Confirmé"
 
-    # --- DÉTECTION STAGE ---
+    # 2. Détection des stages ---
 
     if any(k in titre for k in ["senior", "lead", "manager", "head of", "directeur", "expert", "principal", "vp", "chef"]):
         return "Senior"
@@ -157,8 +165,7 @@ def determiner_niveau(row):
         return "Stage / Alternance"
     
 
-    # --- DÉFINITION DES SEUILS SELON LA GÉOGRAPHIE ---
-    # Liste des mots qui indiquent la région parisienne
+    # 3. Définition des seuils selon la géographie    
     # Zone A : Paris & IDF
     mots_idf = ['paris', 'île-de-france', 'ile-de-france', 'boulogne', 'courbevoie', 'la défense', '92', '75', '93', '94']
     
@@ -200,14 +207,17 @@ def determiner_niveau(row):
         return "Confirmé"    
 
     return "Non spécifié"
+# --------------------------------------------------
 
 def detecter_rqth(text):
     if pd.isna(text): return False
     keywords = ["rqth", "handicap", "situation de handicap", "entreprise adaptée"]
     return any(k in text.lower() for k in keywords)
 
+# ======================================================================================================================================================
 
-# --- 2. CHARGEMENT ET STANDARDISATION ---
+# --- CHARGEMENT ET STANDARDISATION ---
+
 dataframes = []
 cols_globales = [
     "Titre", "Entreprise", "Ville", "Salaire_Annuel", "Type_Contrat", 
@@ -215,7 +225,7 @@ cols_globales = [
 ]
 
 
-# --- 0. CHARGEMENT DE L'HISTORIQUE (La nouveauté est ici) ---
+# --- CHARGEMENT DE L'HISTORIQUE ---
 if os.path.exists(OUTPUT_CSV):
     print(f"📜 Chargement de l'historique : {OUTPUT_CSV}")
     try:
@@ -227,6 +237,7 @@ if os.path.exists(OUTPUT_CSV):
     except:
         print("⚠️ Historique illisible, on repart de zéro.")
 
+# --------------------------------------------------
 
 # --- A. FRANCE TRAVAIL ---
 if os.path.exists(FILE_FT):
@@ -297,7 +308,9 @@ if os.path.exists(FILE_APEC):
 else:
     print("⚠️ Fichier APEC introuvable !")
 
-# --- 3. FUSION ---
+# ======================================================================================================================================================
+
+# --- FUSION ---
 
 if not dataframes:
     print("❌ Aucun fichier chargé. Arrêt.")
@@ -321,7 +334,9 @@ df_final['Ville'] = df_final['Ville'].str.replace(r'(?i)^marseille.*', 'Marseill
 # (Optionnel, mais utile pour regrouper les offres de ce hub)
 # df_final['Ville'] = df_final['Ville'].replace(['Courbevoie', 'Puteaux', 'Nanterre'], 'La Défense')
 
-# 3. Application des corrections
+# --------------------------------------------------
+
+# --- Application des corrections ---
 
 print("✨ Nettoyage des guillemets résiduels...")
 cols_text = ['Titre', 'Entreprise', 'Ville']
@@ -398,9 +413,13 @@ def detecter_stack(description):
 print("🧠 Analyse des compétences Tech...")
 df_final['Tech_Stack'] = df_final['Description'].apply(detecter_stack)
 
+# === INCLUSION ===
+
 df_final['Handicap_Friendly'] = df_final['Description'].apply(detecter_rqth)
 
-# --- 4. SAUVEGARDE ---
+# ======================================================================================================================================================
+
+# --- SAUVEGARDE ---
 df_final.to_csv(OUTPUT_CSV, index=False)
 
 print(f"\n✅ TERMINÉ ! Le fichier global est prêt :")
