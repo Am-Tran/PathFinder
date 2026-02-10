@@ -5,7 +5,7 @@ import re
 
 # ------------------------------------------------------------------------------------------------------------------------------------------------------
 
-# --- CONFIGURATION ---
+# region 1. --- CONFIGURATION ---
 
 # On se place dynamiquement
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -28,10 +28,11 @@ OUTPUT_CSV = os.path.join(project_root, "data", "clean", "global_job_market.csv"
 os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
 
 print("🧪 Démarrage de la fusion...")
+# endregion
 
 # ======================================================================================================================================================
 
-# --- FONCTIONS ---
+#region 2. --- FONCTIONS ---
 
 def normaliser_date(date_str):
     """Force le format AAAA-MM-JJ pour éviter les bugs Streamlit"""
@@ -214,9 +215,10 @@ def detecter_rqth(text):
     keywords = ["rqth", "handicap", "situation de handicap", "entreprise adaptée"]
     return any(k in text.lower() for k in keywords)
 
+# endregion
 # ======================================================================================================================================================
 
-# --- CHARGEMENT ET STANDARDISATION ---
+# region 3. --- CHARGEMENT ET STANDARDISATION ---
 
 dataframes = []
 cols_globales = [
@@ -307,10 +309,11 @@ if os.path.exists(FILE_APEC):
     dataframes.append(df_apec[cols_globales])
 else:
     print("⚠️ Fichier APEC introuvable !")
+# endregion
 
 # ======================================================================================================================================================
 
-# --- FUSION ---
+# region 4. --- FUSION ---
 
 if not dataframes:
     print("❌ Aucun fichier chargé. Arrêt.")
@@ -417,9 +420,10 @@ df_final['Tech_Stack'] = df_final['Description'].apply(detecter_stack)
 
 df_final['Handicap_Friendly'] = df_final['Description'].apply(detecter_rqth)
 
+# endregion
 # ======================================================================================================================================================
 
-# --- SAUVEGARDE ---
+# region 5. --- SAUVEGARDE ---
 df_final.to_csv(OUTPUT_CSV, index=False)
 
 print(f"\n✅ TERMINÉ ! Le fichier global est prêt :")
@@ -427,3 +431,4 @@ print(f"👉 {OUTPUT_CSV}")
 print("\n📊 STATISTIQUES FINALES :")
 print(df_final["Source"].value_counts())
 print(f"\n💰 Offres avec salaire : {df_final['Salaire_Annuel'].notna().sum()}")
+# endregion

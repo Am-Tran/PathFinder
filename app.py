@@ -6,7 +6,7 @@ from datetime import datetime
 import settings
 
 
-# --- CONFIGURATION DE LA PAGE ---
+# region 1. --- CONFIGURATION DE LA PAGE ---
 st.set_page_config(
     page_title="PathFinder Job Market",
     page_icon="🚀",
@@ -137,6 +137,8 @@ if df_filtered.empty:
 # --- 4. GESTION DES ONGLETS ---
 tab_actuel, tab_trends = st.tabs(["⚡ Aujourd'hui", "📅 Évolution & Tendances"])
 
+# endregion
+# region 2. Onglet 1
 # ====================================================================
 # ONGLET 1 : MARCHÉ ACTUEL
 # ====================================================================
@@ -387,7 +389,8 @@ with tab_actuel:
             "Teletravail": st.column_config.TextColumn("Télétravail"),
         }
         )
-
+# endregion
+# region 3. Onglet 2
 # ====================================================================
 # ONGLET 2 : ANALYSE TEMPORELLE
 # ====================================================================
@@ -447,6 +450,8 @@ with tab_trends:
             else:
                 label_duree = "N/A"
 
+# ------------------------------------------------------------------------------------------------------------------------------------------------------
+
             # --- AFFICHAGE DU BANDEAU ---
             st.markdown("---")
             kpi1, kpi2, kpi3 = st.columns(3)
@@ -473,7 +478,9 @@ with tab_trends:
 
             st.info("ℹ️ **Note de lecture :** Le pic observé fin janvier correspond à l'initialisation de la base de données (récupération de l'historique des offres actives).")
            
-            # --- GRAPHIQUE VOLUME ---
+# ------------------------------------------------------------------------------------------------------------------------------------------------------
+
+            # ===== GRAPHIQUE VOLUME =====
             st.markdown("#### 📈 Dynamique des Recrutements")
             volume_par_mois = df_trends.groupby('Mois').size().reset_index(name='Nombre d\'offres')
             
@@ -512,7 +519,9 @@ with tab_trends:
 
             st.divider() # Ligne de séparation visuelle
 
-            # --- ANALYSE DES STACKS ---
+# ------------------------------------------------------------------------------------------------------------------------------------------------------
+
+            # ===== ANALYSE DES STACKS =====
             st.markdown("#### 🔥 Popularité des compétences Tech")
             tech_series = df_trends['Tech_Stack'].dropna().str.split(', ').explode()
             technos_dispo = sorted(tech_series.dropna().unique())
@@ -579,7 +588,9 @@ with tab_trends:
 
                 st.divider() # Séparation visuelle
             
-                # --- GRAPHIQUE TYPES DE CONTRATS ---
+# ------------------------------------------------------------------------------------------------------------------------------------------------------
+
+                # ===== GRAPHIQUE TYPES DE CONTRATS =====
                 
                 st.markdown("#### 📜 Évolution des Types de Contrats")
 
