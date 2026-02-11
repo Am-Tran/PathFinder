@@ -83,9 +83,7 @@ def extraire_annees_exp(description):
 def nettoyer_contrats(df):
     """
     Nettoie et standardise la colonne Type_Contrat.
-    1. Formate le texte (Capitalize)
-    2. Traduit les codes administratifs (Ddi -> CDD)
-    3. Corrige intelligemment selon le Titre (Si Titre='Stage' -> Contrat='Stage')
+
     """
     print("✨ Nettoyage et Harmonisation des Contrats...")
     
@@ -114,7 +112,18 @@ def nettoyer_contrats(df):
     }
     df["Type_Contrat"] = df["Type_Contrat"].replace(corrections_contrat)
 
+
+
     # --- PRÉPARATION DES MASQUES (Les "Détecteurs") ---
+
+    # A. DÉTECTEUR CDI & CDD
+    mask_source_cdi = df['Type_Contrat'] == "CDI"
+    mask_titre_cdi = df['Titre'].astype(str).str.contains(r"\bCDI\b", case=False, regex=True, na=False)
+    mask_is_cdi_officiel = mask_source_cdi | mask_titre_cdi
+
+    mask_source_cdd = df['Type_Contrat'] == "CDD"
+    mask_titre_cdd = df['Titre'].astype(str).str.contains(r"\bCDD\b", case=False, regex=True, na=False)
+    mask_is_cdd_officiel = mask_source_cdd | mask_titre_cdd
 
     # A. DÉTECTEUR SENIOR / MANAGER (Liste Noire pour Stage)
     regex_titre_senior = r"\b(?:senior|lead|manager|directeur|head of|chef de projet|international|freelance|expert|responsable)\b"
@@ -130,52 +139,39 @@ def nettoyer_contrats(df):
     mask_contient_cdi = df['Description'].astype(str).str.contains(regex_cdi, case=False, regex=True, na=False)
 
     # 2. Exclusion : On fuit "possibilité de CDI", "vue sur CDI", etc.
-    regex_cdi_piege = r"(?:possibilit|perspective|débouch|vue|objectif|finalité|suite|embauche|stage|futur|après).{0,30}\bCDI\b"
-    mask_cdi_piege = df['Description'].astype(str).str.contains(regex_cdi_piege, case=False, regex=True, na=False)
+    #regex_cdi_piege = r"(?:possibilit|perspective|débouch|vue|objectif|finalité|suite|embauche|stage|futur|après).{0,30}\bCDI\b"
+    #mask_cdi_piege = df['Description'].astype(str).str.contains(regex_cdi_piege, case=False, regex=True, na=False)
 
     # 3. Résultat : C'est un VRAI CDI Caché
-    mask_vrai_cdi_cache = mask_contient_cdi & (~mask_cdi_piege)
+    mask_vrai_cdi_cache = mask_contient_cdi 
+    #& (~mask_cdi_piege)
 
 
     # --- APPLICATION DES RÈGLES (Ordre Chronologique) ---
-
-    # ÉTAPE 1 : ON APPLIQUE "STAGE" (Si Titre OK + Pas Senior + Pas CDI Caché + Exp Faible)
-    # On ne force le stage que si tous les feux sont verts.
-    mask_valid_stage = (
-        mask_titre_etudiant & 
-        (~mask_titre_senior) & 
-        (~mask_vrai_cdi_cache) & 
-        ((df['Annees_Exp'].isna()) | (df['Annees_Exp'] < 2))
+    
+    df.loc[mask_titre_etudiant, 'Type_Contrat'] = "Stage / Alternance"
+    # On écrase "Stage" par CDI si...
+    # - La source dit CDI (et ce n'est pas "Stagiaire" explicite)
+    # - OU C'est un Senior (Titre)
+    # - OU On a trouvé un CDI propre dans la description
+    
+    mask_force_cdi = (
+        (mask_is_cdi_officiel & ~mask_titre_etudiant) |  # Source CDI (sauf si titre "Stagiaire")
+        mask_titre_senior |                              # Senior / Expert
+        mask_vrai_cdi_cache                              # Description CDI clean
     )
-    df.loc[mask_valid_stage, 'Type_Contrat'] = "Stage / Alternance"
-
-
-    # ÉTAPE 2 : ON CORRIGE LES FAUX STAGES
-    # Si c'est marqué "Stage" (Source ou Etape 1) MAIS que c'est un Senior ou Exp > 2 ans
-    mask_is_stage = (df['Type_Contrat'] == "Stage / Alternance")
-    mask_faux_stages = mask_is_stage & (mask_titre_senior | (df['Annees_Exp'] > 2))
     
-    if mask_faux_stages.sum() > 0:
-        print(f"   - 🧹 Correction de {mask_faux_stages.sum()} faux stages (Seniors/Experts)... -> Passage en CDI")
-        df.loc[mask_faux_stages, 'Type_Contrat'] = "CDI" # On assume CDI par défaut pour un Senior
-
-
-    # ÉTAPE 3 : ON RÉVÈLE LES CDIS CACHÉS 🕵️‍♂️
-    # Si le contrat est "Non spécifié", "CDD" ou même "Stage" (sauf si Titre Etudiant explicite)
-    # ET qu'on a détecté un VRAI CDI dans la description
-    mask_candidats_cdi = df['Type_Contrat'].isin(["Stage / Alternance", "Non spécifié", "CDD", "Intérim"])
+    # On applique le CDI uniquement si ce n'est pas déjà détecté comme Freelance    
+    mask_final_cdi = mask_force_cdi & (df['Type_Contrat'] != "Freelance")
     
-    # On ne touche pas si le titre crie "Stage" (Ex: "Stage Assistant RH - CDI à la clé")
-    mask_correction_cdi = mask_candidats_cdi & mask_vrai_cdi_cache & (~mask_titre_etudiant)
-
-    if mask_correction_cdi.sum() > 0:
-        print(f"   - 🛡️  Transformation de {mask_correction_cdi.sum()} offres en CDI (Détecté dans la description sans ambiguïté)...")
-        df.loc[mask_correction_cdi, 'Type_Contrat'] = "CDI"
-
-    # Correction Freelance
+    if mask_final_cdi.sum() > 0:
+        df.loc[mask_final_cdi, 'Type_Contrat'] = "CDI"
+    
+    # 3. Correction Freelance (Le dernier mot)
     regex_freelance = r"\b(?:freelance|indépendant|independant|free-lance|b2b)\b"
     mask_freelance = df['Titre'].astype(str).str.contains(regex_freelance, case=False, regex=True, na=False)
     df.loc[mask_freelance, 'Type_Contrat'] = "Freelance"
+    df.loc[mask_is_cdd_officiel, 'Type_Contrat'] = "CDD"
 
     return df    
 # --------------------------------------------------
@@ -186,7 +182,7 @@ def determiner_niveau(row):
     basé sur le salaire (distingue idf des autres zones) et les mots-clés du titre.
     """
     titre = str(row['Titre']).lower() if pd.notna(row['Titre']) else ""
-    # esc = str(row['Description']).lower() if pd.notna(row['Description']) else "" 
+    # desc = str(row['Description']).lower() if pd.notna(row['Description']) else "" 
     lieu = str(row['Ville']).lower() if pd.notna(row['Ville']) else "" 
     salaire = row['Salaire_Annuel']
     contrat = str(row['Type_Contrat']).lower() if pd.notna(row['Type_Contrat']) else ""
