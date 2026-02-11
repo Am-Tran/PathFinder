@@ -114,23 +114,63 @@ def nettoyer_contrats(df):
     }
     df["Type_Contrat"] = df["Type_Contrat"].replace(corrections_contrat)
 
-    # 3. Correction avec garde-fou
-    print("🕵️‍♀️ Correction des contrats (Priorité à l'expérience réelle)...")
-    
-    # Liste précise avec word boundaries (\b)
+    # --- PRÉPARATION DES MASQUES (Les "Détecteurs") ---
+
+    # A. DÉTECTEUR SENIOR / MANAGER (Liste Noire pour Stage)
+    regex_titre_senior = r"\b(?:senior|lead|manager|directeur|head of|chef de projet|international|freelance|expert|responsable)\b"
+    mask_titre_senior = df['Titre'].astype(str).str.contains(regex_titre_senior, case=False, regex=True, na=False)
+
+    # B. DÉTECTEUR ÉTUDIANT
     regex_etudiants = r"\b(?:stage|stagiaire|internship|alternance|alternant|apprentissage|contrat pro|pfe)\b"    
     mask_titre_etudiant = df['Titre'].astype(str).str.contains(regex_etudiants, case=False, regex=True, na=False)
 
-    regex_anti_stage = r"\b(?:senior|lead|manager|directeur|head of|chef de projet|international|freelance)\b"
-    mask_titre_senior = df['Titre'].astype(str).str.contains(regex_anti_stage, case=False, regex=True, na=False)
-    
-    # Garde-fou
-    mask_valid_stage = mask_titre_etudiant & ((df['Annees_Exp'].isna()) | (df['Annees_Exp'] < 2)) & (~mask_titre_senior)
-    mask_faux_stages = (df['Type_Contrat'] == "Stage / Alternance") & (mask_titre_senior | (df['Annees_Exp'] > 2))
-    
-    # On applique la correction SEULEMENT si le garde-fou est respecté
+    # C. DÉTECTEUR CDI CACHÉ (Le plus complexe)
+    # 1. Inclusion : On cherche "CDI" ou "Durée indéterminée"
+    regex_cdi = r"\b(?:CDI|durée indéterminée)\b"
+    mask_contient_cdi = df['Description'].astype(str).str.contains(regex_cdi, case=False, regex=True, na=False)
+
+    # 2. Exclusion : On fuit "possibilité de CDI", "vue sur CDI", etc.
+    regex_cdi_piege = r"(?:possibilit|perspective|débouch|vue|objectif|finalité|suite|embauche|stage|futur|après).{0,30}\bCDI\b"
+    mask_cdi_piege = df['Description'].astype(str).str.contains(regex_cdi_piege, case=False, regex=True, na=False)
+
+    # 3. Résultat : C'est un VRAI CDI Caché
+    mask_vrai_cdi_cache = mask_contient_cdi & (~mask_cdi_piege)
+
+
+    # --- APPLICATION DES RÈGLES (Ordre Chronologique) ---
+
+    # ÉTAPE 1 : ON APPLIQUE "STAGE" (Si Titre OK + Pas Senior + Pas CDI Caché + Exp Faible)
+    # On ne force le stage que si tous les feux sont verts.
+    mask_valid_stage = (
+        mask_titre_etudiant & 
+        (~mask_titre_senior) & 
+        (~mask_vrai_cdi_cache) & 
+        ((df['Annees_Exp'].isna()) | (df['Annees_Exp'] < 2))
+    )
     df.loc[mask_valid_stage, 'Type_Contrat'] = "Stage / Alternance"
-    df.loc[mask_faux_stages, 'Type_Contrat'] = "CDD"
+
+
+    # ÉTAPE 2 : ON CORRIGE LES FAUX STAGES
+    # Si c'est marqué "Stage" (Source ou Etape 1) MAIS que c'est un Senior ou Exp > 2 ans
+    mask_is_stage = (df['Type_Contrat'] == "Stage / Alternance")
+    mask_faux_stages = mask_is_stage & (mask_titre_senior | (df['Annees_Exp'] > 2))
+    
+    if mask_faux_stages.sum() > 0:
+        print(f"   - 🧹 Correction de {mask_faux_stages.sum()} faux stages (Seniors/Experts)... -> Passage en CDI")
+        df.loc[mask_faux_stages, 'Type_Contrat'] = "CDI" # On assume CDI par défaut pour un Senior
+
+
+    # ÉTAPE 3 : ON RÉVÈLE LES CDIS CACHÉS 🕵️‍♂️
+    # Si le contrat est "Non spécifié", "CDD" ou même "Stage" (sauf si Titre Etudiant explicite)
+    # ET qu'on a détecté un VRAI CDI dans la description
+    mask_candidats_cdi = df['Type_Contrat'].isin(["Stage / Alternance", "Non spécifié", "CDD", "Intérim"])
+    
+    # On ne touche pas si le titre crie "Stage" (Ex: "Stage Assistant RH - CDI à la clé")
+    mask_correction_cdi = mask_candidats_cdi & mask_vrai_cdi_cache & (~mask_titre_etudiant)
+
+    if mask_correction_cdi.sum() > 0:
+        print(f"   - 🛡️  Transformation de {mask_correction_cdi.sum()} offres en CDI (Détecté dans la description sans ambiguïté)...")
+        df.loc[mask_correction_cdi, 'Type_Contrat'] = "CDI"
 
     # Correction Freelance
     regex_freelance = r"\b(?:freelance|indépendant|independant|free-lance|b2b)\b"
@@ -159,12 +199,11 @@ def determiner_niveau(row):
         if annees > 2: return "Confirmé"
 
     # 2. Détection des stages ---
-
-    if any(k in titre for k in ["senior", "lead", "manager", "head of", "directeur", "expert", "principal", "vp", "chef"]):
-        return "Senior"
-    if "Stage" in contrat or "Alternance" in contrat:
-        return "Stage / Alternance"
+    if "Stage / Alternance" in contrat:
+        return "En formation"
     
+    if any(k in titre for k in ["senior", "lead", "manager", "head of", "directeur", "expert", "principal", "vp", "chef"]):
+        return "Senior"       
 
     # 3. Définition des seuils selon la géographie    
     # Zone A : Paris & IDF

@@ -44,6 +44,8 @@ if df is None:
 st.title("🔎 PathFinder : Analyse du Marché Data")
 st.markdown(f"**{len(df)}** offres analysées provenant de **France Travail, APEC** et **Welcome to the Jungle**.")
 
+st.write("Aperçu des données brutes :", df[['Titre', 'Type_Contrat', 'Niveau']].head(10))
+
 # --- SIDEBAR (FILTRES) ---
 #st.sidebar.header("Filtres").venv
 
@@ -80,7 +82,7 @@ choix_ville = st.sidebar.multiselect(
 selected_ville = choix_ville if choix_ville else ville_list
 
 # 4. Filtre Niveau
-ordre_niveaux = ["Stage / Alternance", "Junior", "Confirmé", "Senior", "Non spécifié"]
+ordre_niveaux = ["En formation", "Junior", "Confirmé", "Senior", "Non spécifié"]
 niveau_list = [n for n in ordre_niveaux if n in df['Niveau'].unique()]
 
 choix_niveau = st.sidebar.multiselect(
@@ -167,6 +169,7 @@ with tab_actuel:
                 help="Nombre d'offres qui mentionnent explicitement un salaire. Le salaire moyen est calculé uniquement sur cet échantillon."
                 )
 
+    # --------------------------------------------------
     # --- GRAPHE REPARTITION PAR VILLE ---
     st.markdown("---")
 
@@ -229,7 +232,7 @@ with tab_actuel:
         else:
             st.info("Pas assez de données de salaire pour afficher le graphique.")
 
-
+    # --------------------------------------------------
     # --- ANALYSE DES STACKS (Compétences) ---
     st.markdown("---")
     st.subheader("🛠️ Les Technologies les plus demandées")   
@@ -280,6 +283,8 @@ with tab_actuel:
         st.plotly_chart(fig_stack, width="stretch")
     else:
         st.info("Aucune compétence technique détectée dans les offres sélectionnées.")
+    
+    # --------------------------------------------------
 
     # --- POSITION DES DONUTS ---
 
@@ -328,7 +333,7 @@ with tab_actuel:
         fig_niveau = px.pie(
             df_filtered, 
             names='Niveau', 
-            title='Niveau de Séniorité',
+            title='Répartition par Séniorité',
             hole=0.4,
             color_discrete_sequence=settings.palette_b
         )
