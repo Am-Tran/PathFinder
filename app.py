@@ -44,8 +44,6 @@ if df is None:
 st.title("🔎 PathFinder : Analyse du Marché Data")
 st.markdown(f"**{len(df)}** offres analysées provenant de **France Travail, APEC** et **Welcome to the Jungle**.")
 
-st.write("Aperçu des données brutes :", df[['Titre', 'Type_Contrat', 'Niveau']].head(10))
-
 # --- SIDEBAR (FILTRES) ---
 #st.sidebar.header("Filtres").venv
 
