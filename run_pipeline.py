@@ -114,7 +114,7 @@ def main():
         print("\n\n🛑 INTERRUPTION MANUELLE (CTRL+C) SUR L'ORCHESTRATEUR")
         print("⚠️  Les sous-processus (scrapers) devraient s'arrêter d'eux-mêmes...")
         # Pas besoin de sauvegarder ici, car ce script ne manipule pas de données.
-        # Ce sont les scripts enfants (updater_*.py) qui géreront leur propre arrêt.
+        # Ce sont les scripts enfants qui géreront leur propre arrêt.
         sys.exit(0)
 
     except Exception as e:

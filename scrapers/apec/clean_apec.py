@@ -1,4 +1,5 @@
 import pandas as pd
+import sys
 import os
 import re
 
@@ -8,6 +9,10 @@ project_root = os.path.dirname(os.path.dirname(current_dir))
 
 INPUT_CSV = os.path.join(project_root, "data", "enriched", "offres_apec_full.csv")
 OUTPUT_CSV = os.path.join(project_root, "data", "clean", "offres_apec_clean.csv")
+
+if project_root not in sys.path:
+    sys.path.append(project_root)
+from utils import sauvegarde_securisee
 
 print(f"🧹 Démarrage du nettoyage APEC : {INPUT_CSV}")
 
@@ -190,5 +195,6 @@ colonnes_finales = [
 df_clean['Source'] = 'Apec'
 colonnes_finales.append('Source')
 
-df_clean[colonnes_finales].to_csv(OUTPUT_CSV, index=False)
+sauvegarde_securisee(df_clean[colonnes_finales], OUTPUT_CSV)
+#df_clean[colonnes_finales].to_csv(OUTPUT_CSV, index=False)
 print(f"\n✅ Terminé ! Fichier propre : {OUTPUT_CSV}")

@@ -1,4 +1,5 @@
 import os
+import sys
 import pandas as pd
 import time
 import random
@@ -14,6 +15,10 @@ from selenium.webdriver.support import expected_conditions as EC
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
 OUTPUT_CSV = os.path.join(project_root, "data", "raw", "offres_apec_url.csv")
+
+if project_root not in sys.path:
+    sys.path.append(project_root)
+from utils import sauvegarde_securisee
 
 # --- FONCTION UTILITAIRE DE NETTOYAGE ---
 def extraire_id(url_brute):
@@ -198,7 +203,8 @@ if urls_trouvees_ce_jour:
     os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)    
     # On écrase l'ancien fichier de liste de courses, on veut repartir à neuf
     df_urls = pd.DataFrame(urls_trouvees_ce_jour, columns=["URL"])
-    df_urls.to_csv(OUTPUT_CSV, mode='w', header=False, index=False, encoding='utf-8-sig')
+    sauvegarde_securisee(df_urls, OUTPUT_CSV)
+    #df_urls.to_csv(OUTPUT_CSV, mode='w', header=False, index=False, encoding='utf-8-sig')
     print(f"✅ SUCCÈS : {len(urls_trouvees_ce_jour)} nouvelles URLs sauvegardées dans 'offres_apec_url.csv'.")
     print("👉 Prochaine étape : Lancez scraper_apec.py")
 else:

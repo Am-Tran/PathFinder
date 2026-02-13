@@ -162,7 +162,7 @@ for i, idx in enumerate(indices_a_verifier):
                         # On coupe pour garder juste YYYY-MM-DD
                         date_obj = datetime.strptime(date_actu_str[:10], "%Y-%m-%d")
                         delta = datetime.now() - date_obj
-                        if delta.days < 7: # Si moins de 7 jours
+                        if delta.days < 3: # Si moins de 3 jours
                             est_recent = True
                     except:
                         est_recent = False

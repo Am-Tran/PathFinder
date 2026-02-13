@@ -47,42 +47,6 @@ else:
     # Création du fichier vide    
     pd.DataFrame(columns=ordre_colonnes).to_csv(OUTPUT_CSV, index=False, encoding='utf-8-sig')
 
-# Fonction sauvegarde securisee
-def sauvegarde_securisee(df, chemin_fichier):
-    """
-    Sauvegarde un DataFrame de manière atomique pour éviter la corruption.
-    1. Écrit dans un fichier .tmp
-    2. Renomme le .tmp en .csv (opération instantanée et sûre)
-    """
-    if df is None or df.empty:
-        print("⚠️ Pas de données à sauvegarder.")
-        return
-
-    chemin_temp = chemin_fichier + ".tmp"
-    
-    try:
-        print(f"💾 Sauvegarde en cours vers {chemin_fichier} ...")
-        
-        # 1. Écriture dans le fichier temporaire
-        df.to_csv(chemin_temp, index=False, encoding='utf-8-sig')
-        
-        # 2. Remplacement atomique (C'est là que la magie opère)
-        if os.path.exists(chemin_temp):
-            os.replace(chemin_temp, chemin_fichier)
-            print("✅ Sauvegarde réussie (Fichier sécurisé).")
-            
-    except Exception as e:
-        print(f"❌ ERREUR CRITIQUE lors de la sauvegarde : {e}")
-        # En cas d'erreur, le fichier original n'a pas été touché !
-    finally:
-        # Nettoyage : Si le fichier temp existe encore (plantage avant le replace), on le vire
-        if os.path.exists(chemin_temp):
-            try:
-                os.remove(chemin_temp)
-            except:
-                pass
-
-
 # --- 1. LE ROBOT ---
 options = webdriver.ChromeOptions()
 options.add_argument("--disable-blink-features=AutomationControlled")
