@@ -2,6 +2,7 @@ import requests
 import pandas as pd
 import time
 import os
+import sys
 from dotenv import load_dotenv
 
 # --- 1. CONFIGURATION (Remplis tes infos) ---
@@ -18,6 +19,10 @@ if not CLIENT_ID or not CLIENT_SECRET:
 
 nom_fichier = "offres_francetravail_full.csv"
 CSV_PATH = os.path.join(root_dir, "data", "enriched", nom_fichier)
+
+if root_dir not in sys.path:
+    sys.path.append(root_dir)
+from utils import sauvegarde_securisee
 
 # --- 2. AUTHENTIFICATION (Récupération du Token) ---
 url_auth = "https://entreprise.francetravail.fr/connexion/oauth2/access_token?realm=%2Fpartenaire"
@@ -109,25 +114,25 @@ for mot in liste_mots_cles:
             for offre in resultats:
                 # DÉDOUBLONNAGE : On vérifie l'ID de l'offre
                 offer_id = offre.get('id')
-                if offer_id in existing_ids:
+                if offer_id in existing_ids or offer_id in ids_recuperes:
                     continue
-                if offer_id not in ids_recuperes:
-                    info = {
-                    "id": offer_id,
-                    "Titre": offre.get('intitule'),
-                    "Entreprise": offre.get('entreprise', {}).get('nom', 'Confidentiel'),
-                    "Ville": offre.get('lieuTravail', {}).get('libelle'),
-                    "Type_Contrat": offre.get('typeContrat'),
-                    "Salaire": offre.get('salaire', {}).get('libelle', 'Non affiché'),
-                    "Date_Creation": offre.get('dateCreation'),
-                    "URL": offre.get('origineOffre', {}).get('urlOrigine'),
-                    "Description": offre.get('description'),
-                    "Source": "France Travail",
-                    "Date_Expiration": ""
-                    }
-                    all_offres_data.append(info)
-                    ids_recuperes.add(offer_id)
-                    count_new += 1
+                
+                info = {
+                "id": offer_id,
+                "Titre": offre.get('intitule'),
+                "Entreprise": offre.get('entreprise', {}).get('nom', 'Confidentiel'),
+                "Ville": offre.get('lieuTravail', {}).get('libelle'),
+                "Type_Contrat": offre.get('typeContrat'),
+                "Salaire": offre.get('salaire', {}).get('libelle', 'Non affiché'),
+                "Date_Creation": offre.get('dateCreation'),
+                "URL": offre.get('origineOffre', {}).get('urlOrigine'),
+                "Description": offre.get('description'),
+                "Source": "France Travail",
+                "Date_Expiration": ""
+                }
+                all_offres_data.append(info)
+                ids_recuperes.add(offer_id)
+                count_new += 1
 
             print(f"   ✅ {len(resultats)} reçues dont {count_new} nouvelles.")
             if len(resultats) < step:
@@ -138,23 +143,32 @@ for mot in liste_mots_cles:
             if response.status_code == 200:
                 print("🏁 Dernière page atteinte.")
                 continuing = False
-            else:
-                # On prépare le prochain tour
+            elif response.status_code == 206:
+                # 206 = Contenu partiel, il y a encore des résultats
                 start += step
-                # Petite pause pour être poli avec le serveur
                 time.sleep(0.3) 
+            else:
+                # Cas théoriquement impossible ici car filtré par le if initial
+                continuing = False 
                 
-    else:
-        print(f"❌ Erreur {response.status_code}. Arrêt.")
-        print(response.text)
-        continuing = False
+        else:
+            print(f"❌ Erreur {response.status_code}. Arrêt.")
+            print(response.text)
+            continuing = False
 
 # --- 4. SAUVEGARDE FINALE ---
 print(f"\n Bilan : {len(all_offres_data)} offres collectées au total.")
 
 if all_offres_data:
-    df = pd.DataFrame(all_offres_data)    
-    df.to_csv(CSV_PATH, index=False, encoding='utf-8')
+    df = pd.DataFrame(all_offres_data)
+    if not df_old.empty:
+        print("🔗 Fusion avec l'historique...")        
+        df_final = pd.concat([df_old, df], ignore_index=True)
+    else:
+        df_final = df 
+
+    #df.to_csv(CSV_PATH, index=False, encoding='utf-8')
+    sauvegarde_securisee(df_final, CSV_PATH)
     print(f"💾 Sauvegardé dans '{nom_fichier}'")
     print("Fin de api_francetravail ==> Lancer updater_francetravail")
 else:

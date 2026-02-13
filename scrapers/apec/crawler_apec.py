@@ -149,6 +149,7 @@ try:
         
         # Passage à la page suivante
         if not stop_scraping and page < PAGES_A_SCRAPER - 1:
+            page_suivante_trouvee = False
             try:
                 print("➡️ Recherche du bouton 'Suivant'...")
                 # On cherche une balise 'a' ou 'li' qui contient le texte "Suivant" ou qui a une classe spécifique
