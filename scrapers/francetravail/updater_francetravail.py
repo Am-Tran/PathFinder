@@ -1,6 +1,7 @@
 import requests
 import pandas as pd
 import os
+import sys
 import time
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
@@ -24,6 +25,10 @@ if not CLIENT_ID or not CLIENT_SECRET:
 if not os.path.exists(CSV_PATH):
     print(f"❌ Pas de fichier : {CSV_PATH}")
     exit()
+
+if root_dir not in sys.path:
+    sys.path.append(root_dir)
+from utils import sauvegarde_securisee
 
 # ------------------------------------------------------------------------------------------------------------------------------------------------------
 # --- CHARGEMENT ---
@@ -205,7 +210,8 @@ for i, idx in enumerate(indices_a_verifier):
         
         # Sauvegarde intermédiaire
         if modifications and i > 0 and i % 50 == 0:
-            df.to_csv(CSV_PATH, index=False, encoding='utf-8-sig')
+            #df.to_csv(CSV_PATH, index=False, encoding='utf-8-sig')
+            sauvegarde_securisee(df, CSV_PATH)
             modifications = False
             print("   💾 Sauvegarde auto...")
 
@@ -213,8 +219,11 @@ for i, idx in enumerate(indices_a_verifier):
         print(f"⚠️ Erreur script : {e}")
     except KeyboardInterrupt:
         print("\n🛑 Arrêt manuel !")
+        sauvegarde_securisee(df, CSV_PATH)
+        exit(0)
 
 # --- FIN ---
-df.to_csv(CSV_PATH, index=False, encoding='utf-8-sig')
+#df.to_csv(CSV_PATH, index=False, encoding='utf-8-sig')
+sauvegarde_securisee(df, CSV_PATH)
 print(f"\n🏁 FIN : {compteur_morts} expirées / {compteur_vivants} actives.")
 print("Fin de updater_francetravail ==> Lancer clean_francetravail")
