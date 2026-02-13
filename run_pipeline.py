@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import threading
+import pandas as pd
 
 # --- CONFIGURATION ---
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -31,7 +32,7 @@ TASKS = {
 
 SCRIPT_FUSION = os.path.join(PROJECT_ROOT, "fusion_csv.py")
 
-# --- FONCTION OUVRIER (Exécutée par chaque Thread) ---
+# --- FONCTION WORKER (Exécutée par chaque Thread) ---
 def run_chain(source_name, script_list):
     """
     Exécute une liste de scripts les uns après les autres pour une source donnée.
@@ -49,49 +50,76 @@ def run_chain(source_name, script_list):
             # On lance le script et on attend qu'il finisse avant de passer au suivant de la liste
             subprocess.run(
                 [sys.executable, script_path], 
-                check=True, 
-                text=True
-                # capture_output=True
+                check=True                
             )
             print(f"✅ [{source_name}] Étape terminée : {script_name}")
             
         except subprocess.CalledProcessError:
             print(f"❌ [{source_name}] ERREUR CRITIQUE sur {script_name}. Arrêt de la chaîne.")
             return # On arrête tout pour ce site
-
+        except Exception as e:
+            print(f"❌ [{source_name}] Erreur imprévue : {e}")
+            return
     print(f"🏁 [{source_name}] CHAÎNE TERMINÉE AVEC SUCCÈS !")
 
-# --- ORCHESTRATEUR PRINCIPAL ---
-if __name__ == "__main__":
-    start_global = time.time()
-    print(f"{'='*60}")
-    print("🚀 DÉMARRAGE PARALLÈLE (3 WORKERS)")
-    print(f"{'='*60}")
 
+# --- FONCTION ORCHESTRATEUR PRINCIPAL ---
+
+def main():
+    print("🚀 Démarrage du Pipeline...")
+    
+    # Variable pour stocker le DataFrame en cours de travail
+    # (Doit être définie avant le try pour être accessible dans le except)
+    start_global = time.time()
     threads = []
 
-    # 1. CRÉATION ET LANCEMENT DES THREADS
-    for source, scripts in TASKS.items():
-        # On crée un Thread pour chaque source
-        t = threading.Thread(target=run_chain, args=(source, scripts))
-        threads.append(t)
-        t.start() # C'est parti !
+    try:       
 
-    # 2. ATTENTE (BARRIÈRE)
-    # Le script principal attend ici que les 3 threads aient fini
-    for t in threads:
-        t.join()
+        # --- ETAPE 1 : TRAITEMENTS ---        
+        
+        start_global = time.time()
+        print(f"{'='*60}")
+        print("⚙️ Démarrage parallèle (3 workers)")
+        print(f"{'='*60}")
 
-    print(f"\n{'='*60}")
-    print("⏳ TOUS LES SCRAPERS ONT FINI. LANCEMENT DE LA FUSION...")
-    print(f"{'='*60}")
+        threads = []
 
-    # 3. LANCEMENT DE LA FUSION (Seulement quand tout est fini)
-    try:
-        subprocess.run([sys.executable, SCRIPT_FUSION], check=True)
-        print("\n🏆 TERMINÉ ! Tout le pipeline s'est exécuté.")
+        # 1. CRÉATION ET LANCEMENT DES THREADS
+        for source, scripts in TASKS.items():
+            # On crée un Thread pour chaque source
+            t = threading.Thread(target=run_chain, args=(source, scripts))
+            threads.append(t)
+            t.start()
+
+        # 2. ATTENTE (BARRIÈRE)
+        # Le script principal attend ici que les 3 threads aient fini
+        for t in threads:
+            t.join()
+
+        print(f"\n{'='*60}")
+        print("⏳ TOUS LES SCRAPERS ONT FINI. LANCEMENT DE LA FUSION...")
+        print(f"{'='*60}")
+
+        # 3. LANCEMENT DE LA FUSION (Seulement quand tout est fini)
+        try:
+            subprocess.run([sys.executable, SCRIPT_FUSION], check=True)
+            print("\n🏆 TERMINÉ ! Tout le pipeline s'est exécuté.")
+        except Exception as e:
+            print(f"❌ Erreur lors de la fusion : {e}")
+
+        duration = time.time() - start_global
+        print(f"⏱️ Temps total d'exécution : {duration:.2f} secondes")
+
+    except KeyboardInterrupt:
+        print("\n\n🛑 INTERRUPTION MANUELLE (CTRL+C) SUR L'ORCHESTRATEUR")
+        print("⚠️  Les sous-processus (scrapers) devraient s'arrêter d'eux-mêmes...")
+        # Pas besoin de sauvegarder ici, car ce script ne manipule pas de données.
+        # Ce sont les scripts enfants (updater_*.py) qui géreront leur propre arrêt.
+        sys.exit(0)
+
     except Exception as e:
-        print(f"❌ Erreur lors de la fusion : {e}")
+        print(f"\n❌ ERREUR GLOBALE : {e}")
+        sys.exit(1)
 
-    duration = time.time() - start_global
-    print(f"⏱️ Temps total d'exécution : {duration:.2f} secondes")
+if __name__ == "__main__":
+    main()
