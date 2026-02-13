@@ -6,12 +6,17 @@ from bs4 import BeautifulSoup
 import time
 import random
 import os
+import sys
 from datetime import datetime
 
 # --- CONFIGURATION ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
 CSV_PATH = os.path.join(project_root, "data", "enriched", "offres_wttj_full.csv")
+
+if project_root not in sys.path:
+    sys.path.append(project_root)
+from utils import sauvegarde_securisee
 
 # Ordre des colonnes
 ordre_colonnes = ["Titre", "Entreprise", "Ville", "Experience_Salaire_Infos", "Description_Complete", "URL", "Date_Publication", "Date_Expiration"]
@@ -110,7 +115,8 @@ try:
 
             # Sauvegarde intermédiaire
             if modifications and i > 0 and i % 10 == 0:
-                df.reindex(columns=ordre_colonnes).to_csv(CSV_PATH, index=False, encoding='utf-8-sig')
+                df_temp = df.reindex(columns=ordre_colonnes)
+                sauvegarde_securisee(df_temp, CSV_PATH)
                 modifications = False
                 
         except Exception as e:
@@ -118,10 +124,12 @@ try:
 
 except KeyboardInterrupt:
     print("\n🛑 Arrêt manuel !")
-
+    df = df.reindex(columns=ordre_colonnes)
+    sauvegarde_securisee(df, CSV_PATH)
 finally:
     df = df.reindex(columns=ordre_colonnes)
-    df.to_csv(CSV_PATH, index=False, encoding='utf-8-sig')
+    #df.to_csv(CSV_PATH, index=False, encoding='utf-8-sig')
+    sauvegarde_securisee(df, CSV_PATH)
     driver.quit()
     print("\n🏁 Bilan :")
     print(f"   ⚰️  Expirées : {compteur_morts}")

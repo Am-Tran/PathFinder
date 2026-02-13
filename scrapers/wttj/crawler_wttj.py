@@ -6,12 +6,17 @@ import time
 import random
 import pandas as pd
 import os
+import sys
 from datetime import datetime
 
 # --- 1. CONFIGURATION DES CHEMINS ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
 CSV_PATH = os.path.join(project_root, "data", "raw", "offres_wttj_url.csv")
+
+if project_root not in sys.path:
+    sys.path.append(project_root)
+from utils import sauvegarde_securisee
 
 # --- 2. CHARGEMENT DE L'HISTORIQUE ---
 urls_vues = set()
@@ -128,7 +133,8 @@ if len(nouvelles_offres) > 0:
     # On s'assure que le dossier existe
     os.makedirs(os.path.dirname(CSV_PATH), exist_ok=True)
     
-    df_final.to_csv(CSV_PATH, index=False, encoding='utf-8-sig')
+    #df_final.to_csv(CSV_PATH, index=False, encoding='utf-8-sig')
+    sauvegarde_securisee(df_final, CSV_PATH)
     print(f"✅ Base mise à jour avec succès : {len(df_final)} offres au total.")
     print(f"📁 Fichier : {CSV_PATH}")
     print("Fin du crawler_wttj ==> Lancer le scraper_wttj")
