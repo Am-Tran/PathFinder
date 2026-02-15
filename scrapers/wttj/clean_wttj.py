@@ -147,7 +147,7 @@ def main():
     cols_finales = [
         'Titre', 'Entreprise', 'Ville', 'Type_Contrat', 
         'Salaire_Annuel_Estime', 'Niveau', 'Description_Propre', 
-        'URL', 'Date_Publication', 'Source'
+        'URL', 'Date_Publication','Date_Expiration', 'Source'
     ]
     for col in cols_finales:
         if col not in df.columns:
