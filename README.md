@@ -75,7 +75,7 @@ Mise en place d'un système de fusion (`pandas.concat` + `drop_duplicates`) robu
 - [x] **Visualisation :** Dashboard Streamlit opérationnel.
 - [x] **Déploiement :** Mise en production de l'application (Streamlit Cloud) pour accès public.
 - [x] **Parsing :** Parsing avancé des salaires (Regex) pour normaliser toutes les rémunérations en Brut Annuel.
-- [ ] **Base de données :**Passage du stockage CSV vers PostgreSQL (Supabase) pour fiabiliser les données et gérer la montée en charge.
+- [ ] **Base de données :** Passage du stockage CSV vers PostgreSQL (Supabase) pour fiabiliser les données et gérer la montée en charge.
 - [ ] **Automatisation :** Fréquence : Passage d'un scraping hebdomadaire à un scraping quotidien (automatisé via GitHub Actions).
 - [ ] **Sources :** Intégration de nouvelles plateformes.
 
