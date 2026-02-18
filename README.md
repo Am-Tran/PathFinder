@@ -71,13 +71,13 @@ Mise en place d'un système de fusion (`pandas.concat` + `drop_duplicates`) robu
 ---
 
 ## Roadmap / Améliorations futures
-[x] **Extraction :** Scraping fonctionnel de 3 sources.
-[x] **Visualisation :** Dashboard Streamlit opérationnel.
-[x] **Déploiement :** Mise en production de l'application (Streamlit Cloud) pour accès public.
-[ ] Passage du stockage CSV vers PostgreSQL (Supabase) pour fiabiliser les données et gérer la montée en charge.
-[ ] Parsing avancé des salaires (Regex) pour normaliser toutes les rémunérations en Brut Annuel.
-[ ] Fréquence : Passage d'un scraping hebdomadaire à un scraping quotidien (automatisé via GitHub Actions).
-[ ] Ajout de nouvelles sources.
+- [x] **Extraction :** Scraping fonctionnel de 3 sources.
+- [x] **Visualisation :** Dashboard Streamlit opérationnel.
+- [x] **Déploiement :** Mise en production de l'application (Streamlit Cloud) pour accès public.
+- [x] **Parsing :** Parsing avancé des salaires (Regex) pour normaliser toutes les rémunérations en Brut Annuel.
+- [ ] **Base de données :**Passage du stockage CSV vers PostgreSQL (Supabase) pour fiabiliser les données et gérer la montée en charge.
+- [ ] **Automatisation :** Fréquence : Passage d'un scraping hebdomadaire à un scraping quotidien (automatisé via GitHub Actions).
+- [ ] **Sources :** Intégration de nouvelles plateformes.
 
 👤 **Auteur**
 * **Développé par Am-Tran** -[Mon LinkedIn](https://www.linkedin.com/in/am%C3%A9lie-tran-981325a5/)
