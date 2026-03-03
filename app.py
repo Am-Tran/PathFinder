@@ -360,38 +360,38 @@ with tab_actuel:
         st.plotly_chart(fig_niveau, width="stretch", height=500)
 
     # --- TABLEAU DE DONNÉES ---
-    st.markdown("---")
-    with st.expander("📋 Explorateur d'Offres"):    
+    # st.markdown("---")
+    # with st.expander("📋 Explorateur d'Offres"):    
 
-        colonnes_a_afficher = [
-            'Titre', 
-            'Ville', 
-            'Type_Contrat', 
-            'Teletravail',
-            'Date_Publication', 
-            'URL'              # ou 'URL' selon ton fichier
-        ]
-        cols_final = [c for c in colonnes_a_afficher if c in df_active.columns]
+    #     colonnes_a_afficher = [
+    #         'Titre', 
+    #         'Ville', 
+    #         'Type_Contrat', 
+    #         'Teletravail',
+    #         'Date_Publication', 
+    #         'URL'              # ou 'URL' selon ton fichier
+    #     ]
+    #     cols_final = [c for c in colonnes_a_afficher if c in df_active.columns]
 
-        st.dataframe(
-        df_active[cols_final],
-        width="stretch", # Prend toute la largeur
-        hide_index=True,          # Cache la colonne d'index (0, 1, 2...)
+    #     st.dataframe(
+    #     df_active[cols_final],
+    #     width="stretch", # Prend toute la largeur
+    #     hide_index=True,          # Cache la colonne d'index (0, 1, 2...)
         
-        # 3. Configuration de l'affichage (Liens et Formats)
-        column_config={
-            "Date_Publication": st.column_config.DateColumn(
-                "Date", 
-                format="DD/MM/YYYY"
-            ),
-            "URL": st.column_config.LinkColumn(
-                "🔗Lien", display_text="https://(.*?)/" # On garde simple pour l'instant
-            ),
-            # Optionnel : Renommer les en-têtes pour faire joli
-            "Type_Contrat": st.column_config.TextColumn("Contrat"),
-            "Teletravail": st.column_config.TextColumn("Télétravail"),
-        }
-        )
+    #     # 3. Configuration de l'affichage (Liens et Formats)
+    #     column_config={
+    #         "Date_Publication": st.column_config.DateColumn(
+    #             "Date", 
+    #             format="DD/MM/YYYY"
+    #         ),
+    #         "URL": st.column_config.LinkColumn(
+    #             "🔗Lien", display_text="https://(.*?)/" # On garde simple pour l'instant
+    #         ),
+    #         # Optionnel : Renommer les en-têtes pour faire joli
+    #         "Type_Contrat": st.column_config.TextColumn("Contrat"),
+    #         "Teletravail": st.column_config.TextColumn("Télétravail"),
+    #     }
+    #     )
 # endregion
 # region 3. Onglet 2
 # ====================================================================
