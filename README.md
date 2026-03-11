@@ -60,6 +60,30 @@ Mise en place d'un système de fusion (`pandas.concat` + `drop_duplicates`) robu
 
 ---
 
+## Modèle de données (PostgreSQL)
+
+Les offres sont stockées dans une base de données avec la structure suivante (Table `Data_Analyst`) :
+
+| Colonne | Type | Description |
+| :--- | :--- | :--- |
+| **`URL`** | `text` | **Primary Key** 🔑 Lien direct vers l'annonce. Garantit l'unicité. |
+| **`Titre`** | `text` | Intitulé exact du poste. |
+| **`Entreprise`** | `text` | Nom de l'entreprise qui recrute. |
+| **`Ville`** | `text` | Lieu de travail extrait de l'annonce. |
+| **`Salaire_Annuel`**| `int4` | Salaire brut annuel estimé en euros (ex: `45000`). |
+| **`Type_Contrat`** | `text` | Type de contrat (CDI, CDD, Stage, Alternance, etc.). |
+| **`Teletravail`** | `text` | Modalités de télétravail spécifiées dans l'annonce. |
+| **`Date_Publication`** | `date` | Date de récupération/publication (`YYYY-MM-DD`). |
+| **`Date_Expiration`** | `date` | Date à laquelle l'offre n'était plus en ligne (`YYYY-MM-DD`). |
+| **`Source`** | `text` | Plateforme source (Apec, WTTJ, France Travail). |
+| **`Description`** | `text` | Contenu textuel complet et nettoyé de l'offre. |
+| **`Tech_Stack`** | `text` | Compétences techniques extraites de l'annonce. |
+| **`Niveau`** | `text` | Niveau calculé par le script (Junior, Confirmé, Senior, etc.). |
+| **`Handicap_Friendly`** | `boolean` | Indique une ouverture aux travailleurs en situation de handicap (mots-clés : RQTH, handicap, entreprise adaptée). |
+| **`Annees_Exp`** | `float4`| Années d'expérience minimum requises (ex: `1.5` ou `3`). |
+
+---
+
 ## Stack Technique
 
 * **Langage :** Python
