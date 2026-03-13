@@ -458,7 +458,7 @@ df_final['Handicap_Friendly'] = df_final['Description'].apply(detecter_rqth)
 # endregion
 # ======================================================================================================================================================
 
-# region 5. --- SAUVEGARDE ---
+# region 5. --- SAUVEGARDE LOCALE ---
 df_final.to_csv(OUTPUT_CSV, index=False)
 
 print(f"\n✅ TERMINÉ ! Le fichier global est prêt :")
@@ -466,4 +466,49 @@ print(f"👉 {OUTPUT_CSV}")
 print("\n📊 STATISTIQUES FINALES :")
 print(df_final["Source"].value_counts())
 print(f"\n💰 Offres avec salaire : {df_final['Salaire_Annuel'].notna().sum()}")
+
+# endregion
+
+# region 6. --- ENVOI SUPABASE ---
+
+import os
+from dotenv import load_dotenv
+from supabase import create_client
+
+donnees_pour_supabase = df_final.to_dict(orient='records')
+load_dotenv()
+
+# Connexion
+url = os.getenv("SUPABASE_URL")
+key = os.getenv("SUPABASE_KEY")
+supabase = create_client(url, key)
+
+def upload_to_supabase(df):    
+    # 1. Conversion en dictionnaire
+    df_copy = df.copy()
+    df_copy[["Date_Publication", "Date_Expiration"]] = df_copy[["Date_Publication", "Date_Expiration"]].astype(str)
+    data = df_copy.to_dict(orient='records')
+
+    # 2. Nettoyage des NaN
+    compteur = 0
+    for offre in data:
+        for key, value in offre.items():
+            if (value != value) or (value == "nan") or (value == "None"):
+                offre[key] = None
+                compteur += 1
+    print(f"Nombre de valeurs vides nettoyées : {compteur}")    
+    input("Vérification OK ? Appuie sur Entrée pour envoyer à Supabase...")
+    # 3. Envoi massif (Upsert)
+    # On utilise 'on_conflict' pour dire à Supabase : 
+    # "Si tu vois la même URL, mets à jour la ligne au lieu d'en créer une nouvelle"
+    try:
+        print(f"📤 Envoi de {len(data)} offres vers Supabase...")
+        # On envoie par paquets pour éviter les erreurs de timeout si c'est très gros
+        supabase.table("Data_Analyst").upsert(data, on_conflict="URL").execute()
+        print("✅ Données synchronisées avec succès !")
+    except Exception as e:
+        print(f"❌ Erreur lors de l'envoi : {e}")
+
+upload_to_supabase(df_final)
+
 # endregion
