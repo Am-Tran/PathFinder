@@ -334,7 +334,7 @@ if os.path.exists(FILE_APEC):
         "Date": "Date_Publication"
     })
     
-    df_apec["Source"] = "Apec"    
+    df_apec["Source"] = "APEC"    
     df_apec["Teletravail"] = "Non spécifié"
     df_apec["Date_Publication"] = df_apec["Date_Publication"].apply(normaliser_date)
     df_apec["Date_Expiration"] = df_apec["Date_Expiration"].apply(normaliser_date)
@@ -501,11 +501,17 @@ def upload_to_supabase(df):
     # 3. Envoi massif (Upsert)
     # On utilise 'on_conflict' pour dire à Supabase : 
     # "Si tu vois la même URL, mets à jour la ligne au lieu d'en créer une nouvelle"
+    batch_size = 1000
     try:
+        print("Répartition avant envoi :")
+        print(df_final['Source'].value_counts())
         print(f"📤 Envoi de {len(data)} offres vers Supabase...")
         # On envoie par paquets pour éviter les erreurs de timeout si c'est très gros
-        supabase.table("Data_Analyst").upsert(data, on_conflict="URL").execute()
-        print("✅ Données synchronisées avec succès !")
+        for i in range(0, len(data), batch_size):
+            batch = data[i : i+batch_size]
+            supabase.table("Data_Analyst").upsert(batch, on_conflict="URL").execute()
+            print(f"✅ Paquet {i//batch_size + 1} envoyé ({len(batch)} lignes)")
+            print("✅ Données synchronisées avec succès !")
     except Exception as e:
         print(f"❌ Erreur lors de l'envoi : {e}")
 

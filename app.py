@@ -4,6 +4,8 @@ import plotly.express as px
 import os
 from datetime import datetime
 import settings
+from dotenv import load_dotenv
+from supabase import create_client
 
 
 # region 1. --- CONFIGURATION DE LA PAGE ---
@@ -18,26 +20,29 @@ st.set_page_config(
 settings.charger_style()
 
 # --- CHARGEMENT DES DONNÉES ---
+load_dotenv()
+url = os.getenv("SUPABASE_URL")
+key = os.getenv("SUPABASE_KEY")
+supabase = create_client(url, key)
 @st.cache_data
 def load_data():
-    file_path = "data/clean/global_job_market.csv"   
-    if not os.path.exists(file_path):
-        st.error(f"❌ Fichier introuvable : {file_path}")
-        return None    
     try:
-        df = pd.read_csv(file_path)
-        df['Date_Publication'] = pd.to_datetime(df['Date_Publication'], errors='coerce')
-        df['Date_Expiration'] = pd.to_datetime(df['Date_Expiration'], errors='coerce')
+        response = supabase.table("Data_Analyst").select("*").limit(10000).execute()    
+        df = pd.DataFrame(response.data)
+        if not df.empty:
+            df['Source'] = df['Source'].str.strip()
+            for col in ["Date_Publication", "Date_Expiration"]:
+                if col in df.columns:
+                    df[col] = pd.to_datetime(df[col], errors='coerce')
         return df
-
-        
     except Exception as e:
-        st.error(f"Erreur de lecture : {e}")
-        return None
+        st.error(f"Erreur lors du chargement Supabase : {e}")
+        return pd.DataFrame()
 
 df = load_data()
 
-if df is None:
+if df.empty:
+    st.warning("⚠️ Aucune donnée trouvée dans la base.")
     st.stop()
 
 # --- TITRE ---
