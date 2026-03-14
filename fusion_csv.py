@@ -497,7 +497,7 @@ def upload_to_supabase(df):
                 offre[key] = None
                 compteur += 1
     print(f"Nombre de valeurs vides nettoyées : {compteur}")    
-    input("Vérification OK ? Appuie sur Entrée pour envoyer à Supabase...")
+    #input("Vérification OK ? Appuie sur Entrée pour envoyer à Supabase...")
     # 3. Envoi massif (Upsert)
     # On utilise 'on_conflict' pour dire à Supabase : 
     # "Si tu vois la même URL, mets à jour la ligne au lieu d'en créer une nouvelle"
