@@ -241,6 +241,8 @@ with tab_actuel:
     st.subheader("🛠️ Les Technologies les plus demandées")   
         
     stack_data = df_active['Tech_Stack'].dropna().str.split(', ').explode()
+    stack_data = stack_data.str.strip()
+    stack_data = stack_data[stack_data != ""]
 
     # 2. Calcul nombre occurences
     stack_series = stack_data.value_counts().reset_index()
