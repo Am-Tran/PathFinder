@@ -20,9 +20,14 @@ st.set_page_config(
 settings.charger_style()
 
 # --- CHARGEMENT DES DONNÉES ---
-load_dotenv()
-url = os.getenv("SUPABASE_URL")
-key = os.getenv("SUPABASE_KEY")
+if os.path.exists(".env"):
+    load_dotenv()
+url = os.getenv("SUPABASE_URL") or os.environ.get("SUPABASE_URL")
+key = os.getenv("SUPABASE_KEY") or os.environ.get("SUPABASE_KEY")
+if not url or not key:
+    st.error("❌ Erreur de configuration : Les clés Supabase sont introuvables.")
+    st.info("Vérifiez la section 'Secrets' dans le dashboard Streamlit Cloud.")
+    st.stop()
 supabase = create_client(url, key)
 @st.cache_data
 def load_data():
