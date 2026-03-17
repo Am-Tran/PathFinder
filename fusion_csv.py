@@ -310,6 +310,10 @@ if os.path.exists(FILE_WTTJ):
         "Description_Propre": "Description",
         "Date": "Date_Publication"
     })
+
+    #Correction nom de ville
+    # bug_text = "visibilité du contenu"
+    # df_wttj.loc[df_wttj['ville'].str.contains(bug_text, case=False, na=False), 'ville'] = "Paris (75)"
     
     # Ajout Source et Date (Aujourd'hui)
     df_wttj["Source"] = "Welcome to the Jungle"

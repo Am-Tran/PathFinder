@@ -20,19 +20,21 @@ st.set_page_config(
 settings.charger_style()
 
 # --- CHARGEMENT DES DONNÉES ---
-if os.path.exists(".env"):
-    load_dotenv()
-url = os.getenv("SUPABASE_URL") or os.environ.get("SUPABASE_URL")
-key = os.getenv("SUPABASE_KEY") or os.environ.get("SUPABASE_KEY")
-if not url or not key:
-    st.error("❌ Erreur de configuration : Les clés Supabase sont introuvables.")
-    st.info("Vérifiez la section 'Secrets' dans le dashboard Streamlit Cloud.")
-    st.stop()
-supabase = create_client(url, key)
+@st.cache_resource
+def get_supabase_client():
+    if os.path.exists(".env"):
+        load_dotenv()
+    url = os.getenv("SUPABASE_URL") or os.environ.get("SUPABASE_URL")
+    key = os.getenv("SUPABASE_KEY") or os.environ.get("SUPABASE_KEY")
+    if not url or not key:
+        st.error("❌ Erreur de configuration : Les clés Supabase sont introuvables.")        
+        st.stop()    
+    return create_client(url, key)
+
 @st.cache_data
-def load_data():
+def load_data(_client):
     try:
-        response = supabase.table("Data_Analyst").select("*").limit(10000).execute()    
+        response = _client.table("Data_Analyst").select("*").limit(10000).execute()    
         df = pd.DataFrame(response.data)
         if not df.empty:
             df['Source'] = df['Source'].str.strip()
@@ -43,12 +45,23 @@ def load_data():
     except Exception as e:
         st.error(f"Erreur lors du chargement Supabase : {e}")
         return pd.DataFrame()
-
-df = load_data()
+    
+supabase = get_supabase_client()
+with st.spinner('🚀 Synchronisation avec la base de données Pathfinder...'):
+    df = load_data(supabase)
 
 if df.empty:
     st.warning("⚠️ Aucune donnée trouvée dans la base.")
     st.stop()
+
+#Quick Fix : temporaire
+if not df.empty:
+    # On élimine les erreurs connues et les textes trop longs qui ne sont pas des villes
+    # (Une ville fait rarement plus de 30 caractères)
+    df = df[
+        (~df['Ville'].str.contains("visibilité", case=False, na=False)) & 
+        (df['Ville'].str.len() < 35)
+    ]
 
 # --- TITRE ---
 st.title("🔎 PathFinder : Analyse du Marché Data")
