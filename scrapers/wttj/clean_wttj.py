@@ -91,7 +91,7 @@ def extraire_salaire_wttj(infos_str):
 # -----------------------------------------------------------------------------------------------------------------------------
 
 def extraire_contrat_wttj(infos_str):
-    """ Extrait le contrat de la colonne fourre-tout """
+    """ Extrait le contrat de la desciption """
     txt = str(infos_str).upper()
     if "CDI" in txt: return "CDI"
     if "CDD" in txt: return "CDD"
@@ -99,6 +99,38 @@ def extraire_contrat_wttj(infos_str):
     if "ALTERNANCE" in txt or "APPRENTISSAGE" in txt: return "Alternance"
     if "FREELANCE" in txt or "INDÉPENDANT" in txt: return "Freelance"
     return "Non spécifié"
+
+# -----------------------------------------------------------------------------------------------------------------------------
+
+def extraire_ville_wttj(infos_str):
+    """ Extrait la ville de la desciption """
+    if not isinstance(infos_str, str):
+        return "Non spécifié"
+    
+    # Pattern : 
+    # 1. On cherche le type de contrat (insensible à la casse)
+    # 2. On ignore tout jusqu'au prochain saut de ligne (\n)
+    # 3. On capture la ligne suivante (qui est normalement la ville)
+    contrats = r"(?:Stage|CDI|CDD|Alternance|Apprentissage|Freelance|Intérim|Interim)"
+    ville_capture = r"[A-ZÀÂÆÇÉÈÊËÎÏÔŒÙÛÜŸ][a-zàâéèêëîïôûùç]+(?:[\s-][A-ZÀÂÆÇÉÈÊËÎÏÔŒÙÛÜŸ][a-zàâéèêëîïôûùç]+)*"
+    pattern = rf"({contrats}).*?\n+(?:.*\n+)?({ville_capture})"
+    
+    match = re.search(pattern, infos_str, re.IGNORECASE | re.MULTILINE)
+    if match:
+        ville_trouvee = match.group(2).strip()               
+        return ville_trouvee
+    
+    return "Non spécifié"
+
+def corriger_ville(row):
+    ville_actuelle = str(row.get('Ville', '')).lower()
+    
+    # Si la ville est une erreur de WTTJ ou qu'elle est vide
+    if "visibilité" in ville_actuelle or ville_actuelle in ["", "none", "non spécifié"]:
+        return extraire_ville_wttj(row['Description_Complete'])
+    
+    # Sinon, on garde la ville d'origine (Paris, Lyon, etc.)
+    return row['Ville']
 
 # -----------------------------------------------------------------------------------------------------------------------------
 
@@ -123,9 +155,12 @@ def main():
 
     # Nettoyage
     df['Titre'] = df['Titre'].astype(str).fillna('')
+    df['Ville'] = df.apply(corriger_ville, axis=1)    
     df['Description_Propre'] = df['Description_Complete'].apply(nettoyer_texte)
     df['Entreprise'] = df['Entreprise'].str.upper().str.strip()
     df['Source'] = 'Welcome to the Jungle'
+
+
 
     print("⚙️ Extraction Salaires & Contrats...")
     if 'Experience_Salaire_Infos' in df.columns:

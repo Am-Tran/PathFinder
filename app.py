@@ -54,15 +54,6 @@ if df.empty:
     st.warning("⚠️ Aucune donnée trouvée dans la base.")
     st.stop()
 
-#Quick Fix : temporaire
-if not df.empty:
-    # On élimine les erreurs connues et les textes trop longs qui ne sont pas des villes
-    # (Une ville fait rarement plus de 30 caractères)
-    df = df[
-        (~df['Ville'].str.contains("visibilité", case=False, na=False)) & 
-        (df['Ville'].str.len() < 35)
-    ]
-
 # --- TITRE ---
 st.title("🔎 PathFinder : Analyse du Marché Data")
 st.markdown(f"**{len(df)}** offres analysées provenant de **France Travail, APEC** et **Welcome to the Jungle**.")
