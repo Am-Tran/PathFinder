@@ -2,6 +2,7 @@ import pandas as pd
 import re
 import os
 import sys
+import unicodedata
 
 # ================= CONFIGURATION =================
 
@@ -17,6 +18,17 @@ if project_root not in sys.path:
 from utils import sauvegarde_securisee
 
 # =================================================
+
+def normaliser_unicode(texte):
+    if not isinstance(texte, str):
+        return texte
+    # 1. Normalise les caractères (ex: les accents composés)
+    texte = unicodedata.normalize('NFKC', texte)
+    # 2. Remplace les espaces insécables et autres joyeusetés par des espaces standards
+    texte = texte.replace('\xa0', ' ').replace('\u202f', ' ')
+    return texte
+
+
 categories_valides = ['Stage / Alternance', 'Junior', 'Confirmé', 'Senior', 'Non spécifié']
 
 def deduire_niveau(row):
@@ -105,32 +117,50 @@ def extraire_contrat_wttj(infos_str):
 def extraire_ville_wttj(infos_str):
     """ Extrait la ville de la desciption """
     if not isinstance(infos_str, str):
-        return "Non spécifié"
+        return "Non spécifié"    
     
-    # Pattern : 
-    # 1. On cherche le type de contrat (insensible à la casse)
-    # 2. On ignore tout jusqu'au prochain saut de ligne (\n)
-    # 3. On capture la ligne suivante (qui est normalement la ville)
-    contrats = r"(?:Stage|CDI|CDD|Alternance|Apprentissage|Freelance|Intérim|Interim)"
-    ville_capture = r"[A-ZÀÂÆÇÉÈÊËÎÏÔŒÙÛÜŸ][a-zàâéèêëîïôûùç]+(?:[\s-][A-ZÀÂÆÇÉÈÊËÎÏÔŒÙÛÜŸ][a-zàâéèêëîïôûùç]+)*"
-    pattern = rf"({contrats}).*?\n+(?:.*\n+)?({ville_capture})"
+    # 1. On découpe en lignes et on enlève les espaces vides
+    lignes = [l.strip() for l in infos_str.split('\n') if l.strip()]
     
-    match = re.search(pattern, infos_str, re.IGNORECASE | re.MULTILINE)
-    if match:
-        ville_trouvee = match.group(2).strip()               
-        return ville_trouvee
+    # 2. Mots qui indiquent que ce n'est PAS une ville
+    mots_interdits = ["télétravail", "salaire", "visibilité", "contenu", "résumé", "poste", "remote", "mois"]
+    contrats = ["stage", "alternance", "cdi", "cdd", "apprentissage", "freelance", "intérim", "interim"]    
+
+    for i, ligne in enumerate(lignes):
+        ligne_lower = ligne.lower()
+        
+        # On cherche la ligne qui EST exactement un type de contrat
+        if any(c == ligne_lower for c in contrats):
+            
+            # On va regarder les lignes suivantes (max 2 lignes après)
+            for offset in [1, 2]:
+                index_suivant = i + offset
+                
+                if index_suivant < len(lignes):
+                    candidat = lignes[index_suivant]
+                    candidat_lower = candidat.lower()
+                    
+                    # CONDITION : Pas de chiffres (ton critère) + Pas de mots poubelles
+                    # On vérifie aussi que ce n'est pas un autre contrat par erreur
+                    if not any(char.isdigit() for char in candidat) and \
+                       not any(p in candidat_lower for p in mots_interdits) and \
+                       candidat_lower not in contrats:
+                        
+                        # Si ça commence par une Majuscule, c'est notre ville
+                        if re.match(r"^[A-ZÀÂÆÇÉÈÊËÎÏÔŒÙÛÜŸ]", candidat):
+                            return candidat
     
     return "Non spécifié"
 
-def corriger_ville(row):
-    ville_actuelle = str(row.get('Ville', '')).lower()
+# def corriger_ville(row):
+#     ville_actuelle = str(row.get('Ville', '')).lower()
     
-    # Si la ville est une erreur de WTTJ ou qu'elle est vide
-    if "visibilité" in ville_actuelle or ville_actuelle in ["", "none", "non spécifié"]:
-        return extraire_ville_wttj(row['Description_Complete'])
+#     # Si la ville est une erreur de WTTJ ou qu'elle est vide
+#     if "visibilité" in ville_actuelle or ville_actuelle in ["", "none", "non spécifié"]:
+#         return extraire_ville_wttj(row['Description_Complete'])
     
-    # Sinon, on garde la ville d'origine (Paris, Lyon, etc.)
-    return row['Ville']
+#     # Sinon, on garde la ville d'origine (Paris, Lyon, etc.)
+#     return row['Ville']
 
 # -----------------------------------------------------------------------------------------------------------------------------
 
@@ -148,18 +178,25 @@ def main():
         print("❌ Fichier introuvable.")
         return
     
-    # Filtre offres actives
-    mask_active = df['Date_Expiration'].isna() | (df['Date_Expiration'] == "") | (df['Date_Expiration'] == "nan")
-    df = df[mask_active].copy()
-    print(f"💎 Offres actives : {len(df)}")
+    for col in ['Titre', 'Description_Complete', 'Ville']:
+        if col in df.columns:
+            df[col] = df[col].apply(normaliser_unicode)   
+    
 
     # Nettoyage
-    df['Titre'] = df['Titre'].astype(str).fillna('')
-    df['Ville'] = df.apply(corriger_ville, axis=1)    
+    df['Titre'] = df['Titre'].fillna('Non spécifié').astype(str)      
     df['Description_Propre'] = df['Description_Complete'].apply(nettoyer_texte)
     df['Entreprise'] = df['Entreprise'].str.upper().str.strip()
     df['Source'] = 'Welcome to the Jungle'
 
+    print("⚙️ Extraction des villes manquantes...")
+    mask_ville_manquante = (
+    df['Ville'].isna() | 
+    (df['Ville'] == "") | 
+    df['Ville'].str.contains("visibilité", case=False, na=True) |
+    (df['Ville'] == "Non spécifié")
+    )
+    df.loc[mask_ville_manquante, 'Ville'] = df.loc[mask_ville_manquante, 'Description_Complete'].apply(extraire_ville_wttj) 
 
 
     print("⚙️ Extraction Salaires & Contrats...")

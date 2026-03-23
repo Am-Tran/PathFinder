@@ -2,6 +2,8 @@ import pandas as pd
 import os
 from datetime import datetime
 import re
+import csv
+import unicodedata
 
 # ------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -304,8 +306,7 @@ if os.path.exists(FILE_WTTJ):
     print("🔹 Chargement WTTJ...")
     df_wttj = pd.read_csv(FILE_WTTJ)
     
-    df_wttj = df_wttj.rename(columns={
-        "Ville_Clean": "Ville",
+    df_wttj = df_wttj.rename(columns={        
         "Salaire_Annuel_Estime": "Salaire_Annuel",
         "Description_Propre": "Description",
         "Date": "Date_Publication"
@@ -463,7 +464,12 @@ df_final['Handicap_Friendly'] = df_final['Description'].apply(detecter_rqth)
 # ======================================================================================================================================================
 
 # region 5. --- SAUVEGARDE LOCALE ---
-df_final.to_csv(OUTPUT_CSV, index=False)
+df_final.to_csv(OUTPUT_CSV,
+                index=False,
+                quoting=csv.QUOTE_ALL,
+                escapechar='\\',
+                encoding='utf-8-sig'
+                )
 
 print(f"\n✅ TERMINÉ ! Le fichier global est prêt :")
 print(f"👉 {OUTPUT_CSV}")
@@ -488,20 +494,29 @@ key = os.getenv("SUPABASE_KEY")
 supabase = create_client(url, key)
 
 def upload_to_supabase(df):    
-    # 1. Conversion en dictionnaire
+    # Conversion en dictionnaire
     df_copy = df.copy()
-    df_copy[["Date_Publication", "Date_Expiration"]] = df_copy[["Date_Publication", "Date_Expiration"]].astype(str)
+    # On uniformise les dates en format datetime Pandas
+    for col in ["Date_Publication", "Date_Expiration"]:
+        if col in df_copy.columns:
+            df_copy[col] = pd.to_datetime(df_copy[col], errors='coerce')
+
+    # 2. Conversion en dictionnaire
     data = df_copy.to_dict(orient='records')
 
-    # 2. Nettoyage des NaN
-    compteur = 0
+    # 3. Nettoyage et Conversion en String pour le JSON
     for offre in data:
         for key, value in offre.items():
-            if (value != value) or (value == "nan") or (value == "None"):
+            # A. Si c'est une date (Timestamp ou NaT)
+            if isinstance(value, pd.Timestamp):
+                if pd.isna(value): 
+                    offre[key] = None  # NaT devient null
+                else:
+                    offre[key] = value.strftime('%Y-%m-%d') # Timestamp devient "YYYY-MM-DD"
+            
+            # B. Si c'est un NaN classique ou autre vide
+            elif pd.isna(value) or str(value).lower() in ["nan", "none", ""]:
                 offre[key] = None
-                compteur += 1
-    print(f"Nombre de valeurs vides nettoyées : {compteur}")    
-    #input("Vérification OK ? Appuie sur Entrée pour envoyer à Supabase...")
     # 3. Envoi massif (Upsert)
     # On utilise 'on_conflict' pour dire à Supabase : 
     # "Si tu vois la même URL, mets à jour la ligne au lieu d'en créer une nouvelle"
