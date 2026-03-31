@@ -1,0 +1,39 @@
+name: Pathfinder Auto-Scraping
+
+on:
+  schedule:
+    # Se lance tous les jours à 8h00 du matin (heure UTC)
+    - cron: '0 4 * * *'
+  workflow_dispatch: # Permet de lancer le robot manuellement depuis GitHub
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Récupérer le code du dépôt
+        uses: actions/checkout@v3
+
+      - name: 🐍 Installer Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: 🌐 Installer Google Chrome
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+
+      - name: 📦 Installer les dépendances
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: 🚀 Lancer le pipeline Data
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          FT_CLIENT_ID: ${{ secrets.FT_CLIENT_ID }}
+          FT_CLIENT_SECRET: ${{ secrets.FT_CLIENT_SECRET }}
+        run: |
+          python run.pipeline.py

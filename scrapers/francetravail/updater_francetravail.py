@@ -111,6 +111,8 @@ def verif_url(offer_id):
             # Si on trouve une des phrases fatales
             if any(mot in page_content for mot in mots_cloture):
                 return False # OFFRE MORTE (Web)
+        if r_web.status_code == 404:
+            return False
                 
         return True # OFFRE VIVANTE (ou erreur web, dans le doute on garde)
         

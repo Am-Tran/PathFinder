@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 import re
 import csv
-import unicodedata
+import sys
 
 # ------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -489,9 +489,12 @@ donnees_pour_supabase = df_final.to_dict(orient='records')
 load_dotenv()
 
 # Connexion
-url = os.getenv("SUPABASE_URL")
-key = os.getenv("SUPABASE_KEY")
-supabase = create_client(url, key)
+supabase_url = os.getenv("SUPABASE_URL")
+supabase_key = os.getenv("SUPABASE_KEY")
+if not supabase_url or not supabase_key:
+    print("❌ Erreur : Identifiants Supabase manquants dans l'environnement.")
+    sys.exit(1)
+supabase = create_client(supabase_url, supabase_key)
 
 def upload_to_supabase(df):    
     # Conversion en dictionnaire
@@ -532,7 +535,8 @@ def upload_to_supabase(df):
             print(f"✅ Paquet {i//batch_size + 1} envoyé ({len(batch)} lignes)")
             print("✅ Données synchronisées avec succès !")
     except Exception as e:
-        print(f"❌ Erreur lors de l'envoi : {e}")
+        print(f"❌ Erreur lors de l'envoi à Supabase: {e}")
+        sys.exit(1)
 
 upload_to_supabase(df_final)
 
