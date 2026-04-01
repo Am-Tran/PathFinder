@@ -20,7 +20,7 @@ st.set_page_config(
 settings.charger_style()
 
 # --- CHARGEMENT DES DONNÉES ---
-@st.cache_resource
+@st.cache_resource(ttl=43200)
 def get_supabase_client():
     if os.path.exists(".env"):
         load_dotenv()
@@ -31,7 +31,7 @@ def get_supabase_client():
         st.stop()    
     return create_client(url, key)
 
-@st.cache_data
+@st.cache_data(ttl=43200)
 def load_data(_client):
     try:
         response = _client.table("Data_Analyst").select("*").limit(10000).execute()    
@@ -128,6 +128,13 @@ taille_police = st.sidebar.slider(
     step=1
 )
 
+st.sidebar.markdown("---")
+st.sidebar.header("🔄 Données")
+if st.sidebar.button("Forcer la mise à jour"):
+    st.cache_data.clear()
+    st.cache_resource.clear()
+    st.rerun()
+
 # --- APPLICATION DES FILTRES ---
 df_filtered = df[
     (df['Source'].isin(selected_source)) &
@@ -138,11 +145,6 @@ df_filtered = df[
 
 if rqth_only:    
     df_filtered = df_filtered[df_filtered['Handicap_Friendly'] == True]
-
-
-# Affichage du nombre de résultats en temps réel dans la sidebar
-
-
 
 if df_filtered.empty:
     st.warning("Aucune offre ne correspond à ces critères.")
