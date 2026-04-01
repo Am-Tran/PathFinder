@@ -33,3 +33,11 @@ def sauvegarde_securisee(df, chemin_fichier):
                 os.remove(chemin_temp)
             except:
                 pass
+
+def prepare_environment():
+    """Crée les dossiers nécessaires s'ils n'existent pas."""
+    folders = ["data/raw", "data/enriched", "data/clean"]
+    for folder in folders:
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+            print(f"📁 Dossier créé : {folder}")

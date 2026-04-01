@@ -4,6 +4,7 @@ import sys
 import time
 import threading
 import pandas as pd
+from utils import prepare_environment
 
 # --- CONFIGURATION ---
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -122,4 +123,5 @@ def main():
         sys.exit(1)
 
 if __name__ == "__main__":
+    prepare_environment()
     main()
