@@ -99,8 +99,7 @@ def nettoyer_contrats(df):
         "Fra": "Freelance",
         "Ind": "Freelance",
         "Din": "CDI Intérimaire",
-        "Cdi": "CDI",
-        "Cee": "CDD", #Quick Fix
+        "Cdi": "CDI",        
         "Cdd": "CDD",
         "Ddi": "CDD",  # Contrat à Durée Déterminée d'Insertion
         "Cui": "CDD",  # Contrat Unique Insertion

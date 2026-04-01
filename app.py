@@ -41,6 +41,9 @@ def load_data(_client):
             for col in ["Date_Publication", "Date_Expiration"]:
                 if col in df.columns:
                     df[col] = pd.to_datetime(df[col], errors='coerce')
+            
+            #Quick Fix
+            df = df[df['Type_Contrat'].str.upper().str.strip() != 'CEE']
         return df
     except Exception as e:
         st.error(f"Erreur lors du chargement Supabase : {e}")
