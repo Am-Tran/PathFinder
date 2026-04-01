@@ -24,8 +24,8 @@ settings.charger_style()
 def get_supabase_client():
     if os.path.exists(".env"):
         load_dotenv()
-    url = os.getenv("SUPABASE_URL") or os.environ.get("SUPABASE_URL")
-    key = os.getenv("SUPABASE_KEY") or os.environ.get("SUPABASE_KEY")
+    url = os.getenv("SUPABASE_URL") or os.environ.get("SUPABASE_URL") or st.secrets.get("SUPABASE_URL")
+    key = os.getenv("SUPABASE_KEY") or os.environ.get("SUPABASE_KEY") or st.secrets.get("SUPABASE_KEY")
     if not url or not key:
         st.error("❌ Erreur de configuration : Les clés Supabase sont introuvables.")        
         st.stop()    
