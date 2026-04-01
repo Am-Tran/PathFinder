@@ -12,10 +12,10 @@ jobs:
 
     steps:
       - name: 📥 Récupérer le code du dépôt
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: 🐍 Installer Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.13'
 
@@ -36,4 +36,4 @@ jobs:
           FT_CLIENT_ID: ${{ secrets.FT_CLIENT_ID }}
           FT_CLIENT_SECRET: ${{ secrets.FT_CLIENT_SECRET }}
         run: |
-          python run.pipeline.py
+          python run_pipeline.py
