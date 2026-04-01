@@ -100,7 +100,7 @@ Les offres sont stockées dans une base de données avec la structure suivante (
 - [x] **Déploiement :** Mise en production de l'application (Streamlit Cloud) pour accès public.
 - [x] **Parsing :** Parsing avancé des salaires (Regex) pour normaliser toutes les rémunérations en Brut Annuel.
 - [x] **Base de données :** Passage du stockage CSV vers PostgreSQL (Supabase) pour fiabiliser les données et gérer la montée en charge.
-- [ ] **Automatisation :** Fréquence : Passage d'un scraping hebdomadaire à un scraping quotidien (automatisé via GitHub Actions).
+- [x] **Automatisation :** Fréquence : Passage d'un scraping hebdomadaire à un scraping quotidien (automatisé via GitHub Actions).
 - [ ] **Sources :** Intégration de nouvelles plateformes.
 
 👤 **Auteur**
