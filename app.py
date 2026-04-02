@@ -22,14 +22,28 @@ settings.charger_style()
 # --- CHARGEMENT DES DONNÉES ---
 
 if os.path.exists(".env"):
+    from dotenv import load_dotenv
     load_dotenv()
 
-# On lit les variables directement dans le flux principal du script
-SUPA_URL = st.secrets.get("SUPABASE_URL") or os.getenv("SUPABASE_URL")
-SUPA_KEY = st.secrets.get("SUPABASE_KEY") or os.getenv("SUPABASE_KEY")
+# Petite fonction dédiée pour chasser la clé, peu importe où Streamlit la cache
+def fetch_key(key_name):
+    # Tentative 1 : L'environnement système (le plus robuste sur le Cloud)
+    val = os.getenv(key_name)
+    if val: 
+        return val
+    
+    # Tentative 2 : Le coffre-fort Streamlit (avec try/except, sans utiliser .get)
+    try:
+        return st.secrets[key_name]
+    except Exception:
+        return None
+
+SUPA_URL = fetch_key("SUPABASE_URL")
+SUPA_KEY = fetch_key("SUPABASE_KEY")
 
 if not SUPA_URL or not SUPA_KEY:
-    st.error("❌ Clés Supabase introuvables.")
+    # Ce message nous dira exactement ce qui est vide si ça plante encore
+    st.error(f"❌ Échec critique. Environnement: {'SUPABASE_URL' in os.environ} | Secrets: {len(st.secrets)}")
     st.stop()
 
 @st.cache_resource(ttl=43200)
