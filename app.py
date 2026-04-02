@@ -20,6 +20,18 @@ st.set_page_config(
 settings.charger_style()
 
 # --- CHARGEMENT DES DONNÉES ---
+
+if os.path.exists(".env"):
+    load_dotenv()
+
+# On lit les variables directement dans le flux principal du script
+SUPA_URL = st.secrets.get("SUPABASE_URL") or os.getenv("SUPABASE_URL")
+SUPA_KEY = st.secrets.get("SUPABASE_KEY") or os.getenv("SUPABASE_KEY")
+
+if not SUPA_URL or not SUPA_KEY:
+    st.error("❌ Clés Supabase introuvables.")
+    st.stop()
+
 @st.cache_resource(ttl=43200)
 def get_supabase_client():
     if os.path.exists(".env"):
@@ -33,28 +45,12 @@ def get_supabase_client():
 
 #Test debug
 @st.cache_resource(ttl=43200)
-def get_supabase_client_test():
-    url = None
-    key = None
-    
-    # 1. On cherche d'abord dans le coffre-fort Streamlit
-    if "SUPABASE_URL" in st.secrets:
-        url = st.secrets["SUPABASE_URL"]
-        key = st.secrets["SUPABASE_KEY"]
-    
-    # 2. Si on ne trouve rien, on cherche en local (ton PC)
-    if not url:
-        if os.path.exists(".env"):
-            load_dotenv()
-        url = os.getenv("SUPABASE_URL")
-        key = os.getenv("SUPABASE_KEY")
-
+def get_supabase_client_test(url, key):   
     # 3. Le crash-test bavard
     if not url or not key:
         # Ça va afficher sur l'écran la liste des mots-clés que Streamlit connaît
         st.error(f"❌ Clés introuvables. Ce que Streamlit voit : {list(st.secrets.keys())}")
-        st.stop()
-        
+        st.stop()        
     return create_client(url, key)
 
 @st.cache_data(ttl=43200)
@@ -75,7 +71,7 @@ def load_data(_client):
         st.error(f"Erreur lors du chargement Supabase : {e}")
         return pd.DataFrame()
     
-supabase = get_supabase_client_test()
+supabase = get_supabase_client_test(SUPA_URL, SUPA_KEY)
 with st.spinner('🚀 Synchronisation avec la base de données Pathfinder...'):
     df = load_data(supabase)
 
