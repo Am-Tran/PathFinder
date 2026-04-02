@@ -7,3 +7,4 @@ data/*
 !data/clean/
 !data/clean/global_job_market.csv
 archive/
+.streamlit/secrets.toml
