@@ -104,4 +104,4 @@ Les offres sont stockées dans une base de données avec la structure suivante (
 - [ ] **Sources :** Intégration de nouvelles plateformes.
 
 👤 **Auteur**
-* **Développé par Am-Tran** -[Mon LinkedIn](https://www.linkedin.com/in/am%C3%A9lie-tran-981325a5/)
+* **Développé par Am-Tran** -[Mon LinkedIn](https://www.linkedin.com/in/amelietran-data/)
