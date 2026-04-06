@@ -190,7 +190,7 @@ if df_filtered.empty:
     st.stop()
 
 # --- 4. GESTION DES ONGLETS ---
-tab_actuel, tab_trends = st.tabs(["⚡ Aujourd'hui", "📅 Évolution & Tendances"])
+tab_actuel, tab_trends, tab_a_propos = st.tabs(["⚡ Aujourd'hui", "📅 Évolution & Tendances", "ℹ️ À propos de PathFinder"])
 
 # endregion
 # region 2. Onglet 1
@@ -699,3 +699,45 @@ with tab_trends:
             
 
         #st.warning("Pas assez de données historiques pour afficher les tendances.")
+
+# endregion
+# region 4. Onglet 3
+# ====================================================================
+# ONGLET 3 : A PROPOS
+# ====================================================================
+with tab_a_propos:
+   st.markdown("""
+    <div style="text-align: justify; max-width: 950px;">
+               
+    **PathFinder** est une pipeline de données ETL (Extract, Transform, Load) automatisé et un tableau de bord interactif conçu pour monitorer les tendances du marché de l'emploi Data en France.
+               
+    #### 💡 Pourquoi ce projet ?
+    Trouver son premier poste implique de traiter un grand volume d'informations souvent éparpillées.  
+    Au lieu de multiplier les recherches manuelles sur différentes plateformes, j'ai développé cet outil pour répondre à des besoins concrets :
+    * **Centraliser :** Regrouper les opportunités de France Travail, l'APEC et Welcome to the Jungle au sein d'une interface unique pour optimiser le temps de recherche.
+    * **Dédoublonner :** Éviter de lire plusieurs fois la même annonce publiée sur des plateformes différentes.
+    * **Analyser :** Mieux comprendre quelles sont les compétences (Tech Stack) réellement demandées aujourd'hui.
+    * **Monitorer :** Suivre l'évolution du marché dans le temps (volume d'annonces, types de contrats, durée de vie moyenne des offres) pour dégager de véritables tendances de fond.
+               
+    
+    #### 🛠️ Architecture & Stack Technique
+    Ce projet couvre l'ensemble du cycle de vie de la donnée (du Data Engineering à la Data Analytics) :
+    
+    * **Collecte & Automatisation :** Scraping quotidien automatisé via des pipelines *GitHub Actions*.
+    * **Stockage :** Base de données Cloud relationnelle gérée sur *Supabase*.
+    * **Traitement :** Nettoyage, harmonisation et filtrage dynamique avec *Pandas*.
+    * **Visualisation :** Interface interactive propulsée par *Streamlit*.
+    
+    #### 🎯 La stratégie derrière les données
+    Conçu pour rendre la recherche d'emploi la plus pertinente possible au-delà de la simple centralisation, l'outil intègre des filtres de ciblage précis (ville, contrat, niveau d'expérience).  
+    En parallèle, il analyse en profondeur d'autres métriques clés des offres : le nombre d'années d'expérience minimal exigé, ainsi que le salaire proposé 
+    (en appliquant des tranches de revenus adaptées selon que le poste se situe en région parisienne, dans une grande métropole ou ailleurs en France). 
+    Cette analyse permet de s'adapter à un marché complexe et de décrypter les véritables attentes que peuvent avoir différentes entreprises derrière un même intitulé. 
+    En croisant ces informations, PathFinder permet de dénicher des opportunités cachées et de postuler de manière plus stratégique.
+    
+    ---
+    *Code source et détails de l'architecture disponibles sur GitHub.*
+    
+    </div>
+    """, unsafe_allow_html=True)
+# endregion 
