@@ -67,23 +67,48 @@ def get_supabase_client_test(url, key):
         st.stop()        
     return create_client(url, key)
 
+
 @st.cache_data(ttl=43200)
-def load_data(_client):
+def load_data(_client, batch_size=1000):
     try:
-        response = _client.table("Data_Analyst").select("*").limit(10000).execute()    
-        df = pd.DataFrame(response.data)
+        all_rows = []
+        start = 0
+        while True:
+            end = start + batch_size - 1
+            response = (
+                _client
+                .table("Data_Analyst")
+                .select("*")
+                .range(start, end)
+                .execute()
+            )
+            batch = response.data
+            if not batch:
+                break
+            all_rows.extend(batch)
+
+            # Si le lot retourné est plus petit que batch_size,
+            # on a atteint la fin
+            if len(batch) < batch_size:
+                break
+
+            start += batch_size
+
+        df = pd.DataFrame(all_rows)
         if not df.empty:
-            df['Source'] = df['Source'].str.strip()
+            if "Source" in df.columns:
+                df["Source"] = df["Source"].astype(str).str.strip()
             for col in ["Date_Publication", "Date_Expiration"]:
                 if col in df.columns:
-                    df[col] = pd.to_datetime(df[col], errors='coerce')
-            
-            #Quick Fix
-            df = df[df['Type_Contrat'].str.upper().str.strip() != 'CCE']
+                    df[col] = pd.to_datetime(df[col], errors="coerce")
+
         return df
+
     except Exception as e:
         st.error(f"Erreur lors du chargement Supabase : {e}")
         return pd.DataFrame()
+
+
     
 supabase = get_supabase_client_test(SUPA_URL, SUPA_KEY)
 with st.spinner('🚀 Synchronisation avec la base de données Pathfinder...'):
