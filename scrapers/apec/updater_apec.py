@@ -30,7 +30,12 @@ df = pd.read_csv(CSV_PATH, encoding='utf-8-sig', dtype=str)
 # --- FILTRAGE INTELLIGENT ---
 # On ne vérifie QUE les lignes où Date_Expiration est vide (ou NaN)
 # Critère : est vide (NaN) OU est une chaine vide "" OU est la string literal "nan"
-mask_a_verifier = df['Date_Expiration'].isna() | (df['Date_Expiration'] == "") | (df['Date_Expiration'] == "nan")
+valeurs_uniques = df['Date_Expiration'].astype(str).unique()
+valeurs_bizarres = [v for v in valeurs_uniques if len(v) != 10 or '/' not in v]
+
+print(f"🔍 Valeurs 'vides' ou mystères trouvées : {valeurs_bizarres}")
+col_date_propre = df['Date_Expiration'].astype(str).str.strip().str.lower()
+mask_a_verifier = col_date_propre.isin(['', 'nan', 'none', '<na>', 'nat', 'null', 'offre active'])
 indices_a_verifier = df[mask_a_verifier].index
 
 print(f"📊 Total offres : {len(df)}")
@@ -90,23 +95,24 @@ try:
             # 2. Signes négatifs
             signes_mort = [
                 "n'est plus en ligne",
+                "n’est plus en ligne", 
                 "n'est plus disponible",
-                "n'existe plus"                
+                "n’est plus disponible",
+                "n'existe plus",
+                "n’existe plus"                
             ]
             est_morte_certaine = any(s in text_page for s in signes_mort)
 
             # --- DÉCISION ---
-            if est_vivante:
-                print("✅ VIVANTE (Confirmée)")
-                compteur_vivants += 1
-
-            elif est_morte_certaine:
+            if est_morte_certaine:
                 date_jour = datetime.now().strftime("%d/%m/%Y")
                 df.at[idx, 'Date_Expiration'] = date_jour
                 print(f"❌ EXPIRÉE (Preuve trouvée)")
                 compteur_morts += 1
                 modifications = True
-
+            elif est_vivante:
+                print("✅ VIVANTE (Confirmée)")
+                compteur_vivants += 1           
             else:
                 # ZONE GRISE : Ni vivante, ni morte explicite -> C'est louche (Bot detection ?)
                 # On ne touche pas à la date, on garde l'offre, mais on regarde pourquoi

@@ -195,7 +195,7 @@ try:
                 "Description_Complete": description,
                 "URL": url,
                 "Date" : date_clean,
-                "Date_Expiration" : "Offre active"
+                "Date_Expiration" : None
             }
             
             df_new = pd.DataFrame([nouvelle_ligne], columns=ordre_colonnes)

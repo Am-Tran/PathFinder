@@ -100,10 +100,11 @@ def verif_url(offer_id):
         if r_web.status_code == 200:
             # Phrases typiques de France Travail quand c'est fini
             mots_cloture = [
-                "cette offre n'est plus en ligne",
-                "cette offre n'est plus disponible",
-                "l'offre que vous recherchez n'existe plus",
-                "offre clôturée"
+                "n'est plus en ligne",
+                "n'est plus disponible",
+                "n'existe pas",
+                "offre clôturée",
+                "(offre clôturée)"
             ]
             
             page_content = r_web.text.lower()
