@@ -13,8 +13,7 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 # Chaque chaîne s'exécutera toute seule, indépendamment des autres
 TASKS = {
     "FRANCE_TRAVAIL": [
-        os.path.join(PROJECT_ROOT, "scrapers", "francetravail", "api_francetravail.py"),
-        os.path.join(PROJECT_ROOT, "scrapers", "francetravail", "updater_francetravail.py"),
+        os.path.join(PROJECT_ROOT, "scrapers", "francetravail", "api_francetravail.py"),        
         os.path.join(PROJECT_ROOT, "scrapers", "francetravail", "clean_francetravail.py"),
     ],
     "WTTJ": [
@@ -70,8 +69,7 @@ def main():
     print("🚀 Démarrage du Pipeline...")
     
     # Variable pour stocker le DataFrame en cours de travail
-    # (Doit être définie avant le try pour être accessible dans le except)
-    start_global = time.time()
+    # (Doit être définie avant le try pour être accessible dans le except)    
     threads = []
 
     try:       
@@ -101,12 +99,20 @@ def main():
         print("⏳ TOUS LES SCRAPERS ONT FINI. LANCEMENT DE LA FUSION...")
         print(f"{'='*60}")
 
-        # 3. LANCEMENT DE LA FUSION (Seulement quand tout est fini)
+        # 3. LANCEMENT DE LA FUSION
         try:
             subprocess.run([sys.executable, SCRIPT_FUSION], check=True)
-            print("\n🏆 TERMINÉ ! Tout le pipeline s'est exécuté.")
+            print("\n✅ ÉTAPE 3 : Fusion terminée avec succès.")
         except Exception as e:
             print(f"❌ Erreur lors de la fusion : {e}")
+        # 4. LANCEMENT DE L'UPDATER (Indépendant)
+        try:
+            print("\n🔍 Lancement de la vérification des offres (Updater)...")
+            script_updater_ft = os.path.join(PROJECT_ROOT, "scrapers", "francetravail", "updater_francetravail.py")
+            subprocess.run([sys.executable, script_updater_ft], check=True)
+            print("\n🏆 TERMINÉ ! Tout le pipeline a été exécuté")
+        except Exception as e:
+            print(f"❌ Erreur lors de la phase finale : {e}")
 
         duration = time.time() - start_global
         print(f"⏱️ Temps total d'exécution : {duration:.2f} secondes")
