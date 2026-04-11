@@ -6,6 +6,7 @@ def sauvegarde_securisee(df, chemin_fichier):
     Sauvegarde un DataFrame de manière atomique pour éviter la corruption.
     1. Écrit dans un fichier .tmp
     2. Renomme le .tmp en .csv (opération instantanée et sûre)
+    Nécessite os, pandas as pd
     """
     if df is None or df.empty:
         print("⚠️ [Utils] Pas de données à sauvegarder.")
@@ -35,7 +36,10 @@ def sauvegarde_securisee(df, chemin_fichier):
                 pass
 
 def prepare_environment():
-    """Crée les dossiers nécessaires s'ils n'existent pas."""
+    """
+    Crée les dossiers nécessaires s'ils n'existent pas.
+    Nécessite os
+    """
     folders = ["data/raw", "data/enriched", "data/clean"]
     for folder in folders:
         if not os.path.exists(folder):
