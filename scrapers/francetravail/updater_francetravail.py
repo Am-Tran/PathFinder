@@ -2,13 +2,15 @@ import requests
 import pandas as pd
 import os
 import sys
+import re
 import time
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-# from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup
 import random
 
 # --- CONFIGURATION ---
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(os.path.dirname(current_dir))
 dotenv_path = os.path.join(root_dir, '.env')
@@ -94,24 +96,33 @@ def verif_url(offer_id):
     }
     
     try:
-        # On ne télécharge que le HTML, c'est assez rapide
+        # On ne télécharge que le HTML
         r_web = requests.get(url_publique, headers=headers_browser, timeout=5)
-        
-        if r_web.status_code == 200:
-            # Phrases typiques de France Travail quand c'est fini
-            mots_cloture = [
-                "n'est plus en ligne",
-                "n'est plus disponible",
-                "n'existe pas",
-                "offre clôturée",
-                "(offre clôturée)"
-            ]
+        if r_web.status_code not in [200, 404]:
+            print(f"   🛡️ [DEBUG] Bloqué par le pare-feu France Travail ! Code HTTP : {r_web.status_code}")
+            return True # Dans le doute, on garde
+        if r_web.status_code == 200:            
+            signes_mort = [
+                "n'est plus en ligne",                
+                "n'est plus disponible",                
+                "n'existe pas",                
+                "offre clôturée",                                
+                "n'existe plus"                
+            ]            
             
-            page_content = r_web.text.lower()
-            
-            # Si on trouve une des phrases fatales
-            if any(mot in page_content for mot in mots_cloture):
+            soup = BeautifulSoup(r_web.text, 'html.parser')
+            texte_brut = soup.get_text().lower()
+            page_content = re.sub(r'\s+', ' ', texte_brut)
+            page_content = page_content.replace("’", "'").replace("´", "'")
+                        
+            if any(mot in page_content for mot in signes_mort):
                 return False # OFFRE MORTE (Web)
+            else:
+                texte_propre_apercu = page_content[:150].strip()
+                print(f"   🔍 [DEBUG] Python a lu le texte suivant : '{texte_propre_apercu}...'")
+                if r_web.url != url_publique:
+                    print(f"   🔀 [DEBUG] Redirection forcée vers : {r_web.url}")
+                return True
         if r_web.status_code == 404:
             return False
                 
@@ -135,7 +146,7 @@ for i, idx in enumerate(indices_a_verifier):
         offer_id = df.at[idx, 'id'] if 'id' in df.columns and pd.notna(df.at[idx, 'id']) else None
         
         if not offer_id:
-            # Tentative d'extraction depuis l'URL (ex: .../detail/1234567)
+            # Tentative d'extraction depuis l'URL
             url = str(df.at[idx, 'URL'])
             if "detail/" in url:
                 offer_id = url.split("detail/")[-1].split("/")[0]
@@ -163,39 +174,42 @@ for i, idx in enumerate(indices_a_verifier):
 
         elif r.status_code == 200:
             est_recent = False
-            try:
-                date_actu_str = r.json().get('dateActualisation', '')                
-                if date_actu_str:
-                    try:
-                        # On coupe pour garder juste YYYY-MM-DD
-                        date_obj = datetime.strptime(date_actu_str[:10], "%Y-%m-%d")
-                        delta = datetime.now() - date_obj
-                        if delta.days < 3: # Si moins de 3 jours
-                            est_recent = True
-                    except:
-                        est_recent = False
-            except Exception:
-                est_recent = False       
+            # try:
+            #     date_actu_str = r.json().get('dateActualisation', '')                
+            #     if date_actu_str:
+            #         try:
+            #             # On coupe pour garder juste YYYY-MM-DD
+            #             date_obj = datetime.strptime(date_actu_str[:10], "%Y-%m-%d")
+            #             delta = datetime.now() - date_obj
+            #             if delta.days < 3: # Si moins de 3 jours
+            #                 est_recent = True
+            #         except:
+            #             est_recent = False
+            # except Exception:
+            #     est_recent = False       
 
-            if est_recent:
-                print(f"✅ [{i+1}] {offer_id} : ACTIVE (Confirmé API Récente)")
+            # if est_recent:
+            #     print(f"✅ [{i+1}] {offer_id} : ACTIVE (Confirmé API Récente)")
+            #     compteur_vivants += 1
+            # else:
+            #     print(f"🔍 [{i+1}] {offer_id} : Date ancienne... Vérification Web...")
+            #     est_visible_web = verif_url(offer_id)
+            print(f"🔍 [{i+1}] {offer_id} : API 200 OK... Vérification Web...")
+            
+            est_visible_web = verif_url(offer_id)
+            if est_visible_web:
+                print(f"✅ [{i+1}] {offer_id} : ACTIVE (Confirmé Web)")
                 compteur_vivants += 1
             else:
-                print(f"🔍 [{i+1}] {offer_id} : Date ancienne... Vérification Web...")
-                est_visible_web = verif_url(offer_id)
-                if est_visible_web:
-                    print(f"✅ [{i+1}] {offer_id} : ACTIVE (Confirmé Web)")
-                    compteur_vivants += 1
-                else:
-                    print(f"❌ [{i+1}] {offer_id} : FANTÔME (Active API mais Morte Web) -> SUPPRESSION")
-                    df.at[idx, 'Date_Expiration'] = datetime.now().strftime("%d/%m/%Y")
-                    compteur_morts += 1
-                    modifications = True
-                
-                # Petite pause pour pas se faire bannir IP par le site web
-                sleep_time = random.uniform(3, 6)
-                print(f"⏳ Pause de {sleep_time:.2f} sec...")
-                time.sleep(sleep_time)
+                print(f"❌ [{i+1}] {offer_id} : FANTÔME (Active API mais Morte Web) -> Mise à jour : Date_Expiration")
+                df.at[idx, 'Date_Expiration'] = datetime.now().strftime("%d/%m/%Y")
+                compteur_morts += 1
+                modifications = True
+            
+            # Petite pause pour pas se faire bannir IP par le site web
+            sleep_time = random.uniform(3, 6)
+            print(f"⏳ Pause de {sleep_time:.2f} sec...")
+            time.sleep(sleep_time)
 
         elif r.status_code == 401: # Token expiré
             print("🔄 Token expiré, renouvellement...")

@@ -5,6 +5,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import re
 from bs4 import BeautifulSoup
 import time
 import random
@@ -85,7 +86,9 @@ try:
             time.sleep(random.uniform(3, 5))
             
             soup = BeautifulSoup(driver.page_source, 'html.parser')
-            text_page = soup.get_text().lower()
+            texte_brut = soup.get_text().lower()
+            text_page = re.sub(r'\s+', ' ', texte_brut)
+            text_page = text_page.replace("’", "'").replace("´", "'")
             
             # --- LOGIQUE DE DIAGNOSTIC ---
             # 1. Signes positifs
@@ -94,12 +97,10 @@ try:
 
             # 2. Signes négatifs
             signes_mort = [
-                "n'est plus en ligne",
-                "n’est plus en ligne", 
-                "n'est plus disponible",
-                "n’est plus disponible",
-                "n'existe plus",
-                "n’existe plus"                
+                "n'est plus en ligne",                
+                "n'est plus disponible",               
+                "n'existe pas",             
+                "n'existe plus"                            
             ]
             est_morte_certaine = any(s in text_page for s in signes_mort)
 

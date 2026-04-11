@@ -46,20 +46,9 @@ if not SUPA_URL or not SUPA_KEY:
     st.error(f"❌ Échec critique. Environnement: {'SUPABASE_URL' in os.environ} | Secrets: {len(st.secrets)}")
     st.stop()
 
-@st.cache_resource(ttl=43200)
-def get_supabase_client():
-    if os.path.exists(".env"):
-        load_dotenv()
-    url = os.getenv("SUPABASE_URL") or os.environ.get("SUPABASE_URL") or st.secrets.get("SUPABASE_URL")
-    key = os.getenv("SUPABASE_KEY") or os.environ.get("SUPABASE_KEY") or st.secrets.get("SUPABASE_KEY")    
-    if not url or not key:
-        st.error("❌ Erreur de configuration : Les clés Supabase sont introuvables.")        
-        st.stop()    
-    return create_client(url, key)
 
-#Test debug
 @st.cache_resource(ttl=43200)
-def get_supabase_client_test(url, key):   
+def get_supabase_client(url, key):   
     # 3. Le crash-test bavard
     if not url or not key:
         # Ça va afficher sur l'écran la liste des mots-clés que Streamlit connaît
@@ -110,7 +99,7 @@ def load_data(_client, batch_size=1000):
 
 
     
-supabase = get_supabase_client_test(SUPA_URL, SUPA_KEY)
+supabase = get_supabase_client(SUPA_URL, SUPA_KEY)
 with st.spinner('🚀 Synchronisation avec la base de données Pathfinder...'):
     df = load_data(supabase)
 
