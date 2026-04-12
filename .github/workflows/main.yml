@@ -2,8 +2,8 @@ name: Pathfinder Auto-Scraping
 
 on:
   schedule:
-    # Se lance tous les jours à 2h00 du matin (heure UTC)
-    - cron: '0 2 * * *'
+    # Se lance tous les jours vers 22h17 (heure UTC)
+    - cron: '17 22 * * *'
   workflow_dispatch: # Permet de lancer le robot manuellement depuis GitHub
 
 jobs:
