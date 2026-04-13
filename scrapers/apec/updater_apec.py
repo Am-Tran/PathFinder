@@ -10,41 +10,42 @@ from bs4 import BeautifulSoup
 import time
 import random
 import os
+import sys
 from datetime import datetime
+from supabase import create_client
+from tqdm import tqdm
 
 # --- CONFIGURATION ---
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
-CSV_PATH = os.path.join(project_root, "data", "enriched", "offres_apec_full.csv")
+if project_root not in sys.path:
+    sys.path.append(project_root)
+from utils import fetch_key, load_data
+
+supabase_url = fetch_key("SUPABASE_URL")
+supabase_key = fetch_key("SUPABASE_KEY")
+supabase = create_client(supabase_url, supabase_key)
+
+# --- CHARGEMENT ---
+
+table_choisie = "Data_Analyst_test"
+print("☁️ Récupération des offres actives depuis Supabase...")
+df_base = load_data(supabase, table_name=table_choisie)
+
+df_a_verifier = df_base[
+    (df_base['Source'] == 'APEC') & 
+    (df_base['Date_Expiration'].isna())
+]
+
+print(f"🕵️ {len(df_a_verifier)} offres à vérifier dans la base de données.")
+if len(df_a_verifier) == 0:
+    print(" ⚠️ Il n'y a aucune offre active de l'APEC.")
+    exit()
 
 # Ordre des colonnes pour la réécriture propre
 ordre_colonnes = ["Titre", "Entreprise", "Ville", "Salaire_Brut", "Details_Tags", "Description_Complete", "URL", "Date", "Date_Expiration"]
 
-if not os.path.exists(CSV_PATH):
-    print("❌ Pas de fichier historique trouvé. Lancez d'abord le scraper.")
-    exit()
-
-print("🔄 Chargement de la base de données...")
-# On charge tout en string pour éviter les conflits de types (NaN vs texte)
-df = pd.read_csv(CSV_PATH, encoding='utf-8-sig', dtype=str)
-
-# --- FILTRAGE INTELLIGENT ---
-# On ne vérifie QUE les lignes où Date_Expiration est vide (ou NaN)
-# Critère : est vide (NaN) OU est une chaine vide "" OU est la string literal "nan"
-valeurs_uniques = df['Date_Expiration'].astype(str).unique()
-valeurs_bizarres = [v for v in valeurs_uniques if len(v) != 10 or '/' not in v]
-
-print(f"🔍 Valeurs 'vides' ou mystères trouvées : {valeurs_bizarres}")
-col_date_propre = df['Date_Expiration'].astype(str).str.strip().str.lower()
-mask_a_verifier = col_date_propre.isin(['', 'nan', 'none', '<na>', 'nat', 'null', 'offre active'])
-indices_a_verifier = df[mask_a_verifier].index
-
-print(f"📊 Total offres : {len(df)}")
-print(f"🕵️  Offres actives à vérifier : {len(indices_a_verifier)}")
-
-if len(indices_a_verifier) == 0:
-    print("✅ Toutes vos offres expirées sont déjà marquées . Rien à faire.")
-    exit()
 
 # --- ROBOT ---
 options = webdriver.ChromeOptions()
@@ -65,18 +66,26 @@ compteur_morts = 0
 compteur_vivants = 0
 compteur_doutes = 0
 modifications = False
+offres_a_mettre_a_jour = []
+liste_offres = df_a_verifier.to_dict(orient='records')
+for offre in liste_offres:
+    for cle, valeur in offre.items():
+        if pd.isna(valeur):
+            offre[cle] = None
+        elif isinstance(valeur, pd.Timestamp):
+            # On convertit le Timestamp en texte "AAAA-MM-JJ"
+            offre[cle] = valeur.strftime("%Y-%m-%d")
 
 try:
-    for i, idx in enumerate(indices_a_verifier):
-        url = df.at[idx, 'URL']
-        titre = str(df.at[idx, 'Titre'])
+    for i, offre in enumerate(tqdm(liste_offres, desc="Vérification du statut des offres")):
+        url = offre.get('URL')
+        if not url:
+                print(f"⚠️  Ligne {i} : Pas d'URL trouvée.")
+                continue    
         
-        # Affichage progression
-        print(f"[{i+1}/{len(indices_a_verifier)}] {titre[:30]}...", end=" ")
-        
-        try:
-            driver.get(url)
-            
+        try:          
+            driver.get(url)        
+               
             # Gestion cookies au tout début
             if i == 0: 
                 tuer_cookies(driver)
@@ -85,49 +94,35 @@ try:
             # Pause très courte (on veut juste voir si le texte charge)
             time.sleep(random.uniform(3, 5))
             
-            soup = BeautifulSoup(driver.page_source, 'html.parser')
-            texte_brut = soup.get_text().lower()
-            text_page = re.sub(r'\s+', ' ', texte_brut)
-            text_page = text_page.replace("’", "'").replace("´", "'")
+            soup = BeautifulSoup(driver.page_source, 'html.parser')           
             
             # --- LOGIQUE DE DIAGNOSTIC ---
-            # 1. Signes positifs
-            signes_vie = ["postuler", "candidater", "sauvegarder cette offre"]
-            est_vivante = any(s in text_page for s in signes_vie)
-
-            # 2. Signes négatifs
-            signes_mort = [
-                "n'est plus en ligne",                
-                "n'est plus disponible",               
-                "n'existe pas",             
-                "n'existe plus"                            
-            ]
-            est_morte_certaine = any(s in text_page for s in signes_mort)
+            balise_morte = soup.find("apec-offre-unpublished-archived")            
+            balise_vivante_class = soup.find(class_="card_offer__text")
+            balise_vivante_tag = soup.find(["apec-detail-emploi", "apec-poste-information", "apec_offre_metadata"])
 
             # --- DÉCISION ---
-            if est_morte_certaine:
-                date_jour = datetime.now().strftime("%d/%m/%Y")
-                df.at[idx, 'Date_Expiration'] = date_jour
-                print(f"❌ EXPIRÉE (Preuve trouvée)")
-                compteur_morts += 1
-                modifications = True
-            elif est_vivante:
-                print("✅ VIVANTE (Confirmée)")
-                compteur_vivants += 1           
-            else:
-                # ZONE GRISE : Ni vivante, ni morte explicite -> C'est louche (Bot detection ?)
-                # On ne touche pas à la date, on garde l'offre, mais on regarde pourquoi
-                print("⚠️ DOUTE (Ni bouton, ni message d'erreur -> On garde)")
+            if balise_morte:
+                date_jour = datetime.now().strftime("%Y-%m-%d") 
+                offre['Date_Expiration'] = date_jour
+                offres_a_mettre_a_jour.append(offre) 
                 
-                # Photo pour debug
+                print(f" ❌ EXPIRÉE (Balise 'archived' détectée)")
+                compteur_morts += 1
+                
+            elif balise_vivante_class or balise_vivante_tag:
+                print(" ✅ VIVANTE (Structure d'offre détectée)")
+                compteur_vivants += 1           
+                
+            else:
+                # Si on n'a NI l'un NI l'autre, c'est qu'on a probablement mangé un Captcha !
+                print(" ⚠️ DOUTE (Page non reconnue -> Captcha ou blocage ?)")
+                compteur_doutes += 1
                 nom_photo = f"debug_apec_{i}.png"
                 driver.save_screenshot(nom_photo)
                 print(f"   📸 Photo prise : {nom_photo}")
-
-            # Sauvegarde intermédiaire
-            if modifications and i > 0 and i % 10 == 0:
-                df.to_csv(CSV_PATH, index=False, encoding='utf-8-sig')
-                modifications = False
+                time.sleep(5)
+            
         except Exception as e:
                     print(f"⚠️ Erreur tech : {e}")
 
@@ -137,14 +132,18 @@ except KeyboardInterrupt:
 
 # --- FERMETURE PROPRE ---
 finally:
-    # SAUVEGARDE FINALE
-    # On s'assure de garder l'ordre des colonnes propre
-    df = df.reindex(columns=ordre_colonnes)
-    df.to_csv(CSV_PATH, index=False, encoding='utf-8-sig')
-    
+    # SAUVEGARDE FINALE    
+    if offres_a_mettre_a_jour:
+        print(f"\n📤 Envoi de {len(offres_a_mettre_a_jour)} mises à jour vers Supabase...")
+        # On envoie par paquets de 1000 (limite Supabase)
+        for i in range(0, len(offres_a_mettre_a_jour), 1000):
+            batch = offres_a_mettre_a_jour[i : i + 1000]
+            supabase.table(table_choisie).upsert(batch, on_conflict="URL").execute()
+        print("✅ Base de données synchronisée !")
+    else:
+        print("\n✅ Aucune offre à mettre à jour.")
     driver.quit()
+    
     print("\n🏁 Bilan Updater :")
     print(f"   ⚰️  Offres passées en 'Expirée' : {compteur_morts}")
-    print(f"   ✅  Offres confirmées actives : {compteur_vivants}")
-    print(f"   📂  Fichier mis à jour : {CSV_PATH}")
-    print("Fin de updater_apec ==> Lancer clean_apec")
+    print(f"   ✅  Offres confirmées actives : {compteur_vivants}")  
