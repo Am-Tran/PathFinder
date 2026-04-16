@@ -8,6 +8,7 @@ import random
 import os
 import json
 from datetime import datetime
+from tqdm import tqdm
 
 # --- 0. CONFIGURATION ---
 # Calcul automatique des chemins pour éviter les erreurs
@@ -62,7 +63,7 @@ print("🚀 Démarrage de l'extraction...")
 
 # --- 4. BOUCLE ---
 try:
-    for index, row in df_source.iterrows():
+    for index, row in tqdm(df_source.iterrows(), desc = "Scraping WTTJ"):
         url = row['URL']
         titre_csv = row['Titre']
         

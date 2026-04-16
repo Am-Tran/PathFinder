@@ -10,6 +10,7 @@ import time
 import random
 import os
 from datetime import datetime
+from tqdm import tqdm
 
 # --- 0. CONFIGURATION ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -114,7 +115,7 @@ def extraire_date(soup):
 
 # --- 2. LA BOUCLE ---
 try:
-    for index, row in df_source.iterrows():
+    for index, row in tqdm(df_source.iterrows(), desc="Scraping APEC"):
         url = row['URL']
         titre_csv = 'Inconnu'
         

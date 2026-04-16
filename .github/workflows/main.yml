@@ -6,34 +6,102 @@ on:
     - cron: '17 22 * * *'
   workflow_dispatch: # Permet de lancer le robot manuellement depuis GitHub
 
+  # Définition des variables d'environnement globales pour TOUS les serveurs
+env:
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+
 jobs:
-  build:
+  # 🤖 Agent 1 : France Travail
+  agent_ft:
     runs-on: ubuntu-latest
-
     steps:
-      - name: 📥 Récupérer le code du dépôt
-        uses: actions/checkout@v4
-
-      - name: 🐍 Installer Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v3
+      - name: Configuration Python
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.13'
-
-      - name: 🌐 Installer Google Chrome
+          python-version: '3.10' # Mets ta version
+      - name: Installation des dépendances
+        run: pip install -r requirements.txt
+      - name: Lancement Pipeline FT
         run: |
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable
+          python scrapers/francetravail/api_francetravail.py
+          python scrapers/francetravail/clean_francetravail.py
 
-      - name: 📦 Installer les dépendances
+  # 🤖 Agent 2 : Welcome to the Jungle
+  agent_wttj:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Configuration Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Installation des dépendances
+        run: pip install -r requirements.txt
+      - name: Lancement Pipeline WTTJ
         run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          python scrapers/wttj/crawler_wttj.py
+          python scrapers/wttj/scraper_wttj.py
+          python scrapers/wttj/clean_wttj.py
 
-      - name: 🚀 Lancer le pipeline Data
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          FT_CLIENT_ID: ${{ secrets.FT_CLIENT_ID }}
-          FT_CLIENT_SECRET: ${{ secrets.FT_CLIENT_SECRET }}
+  # 🤖 Agent 3 : APEC
+  agent_apec:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Configuration Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Installation des dépendances
+        run: pip install -r requirements.txt
+      - name: Lancement Pipeline APEC
         run: |
-          python run_pipeline.py
+          python scrapers/apec/crawler_apec.py
+          python scrapers/apec/scraper_apec.py
+          python scrapers/apec/clean_apec.py
+
+  # 🧹 Agent 4 : Updater de WTTJ (Cadenas Temporel)
+  agent_wttj_updaters:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Configuration Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Installation des dépendances
+        run: pip install -r requirements.txt
+      - name: Vérification de l'ancien stock
+        run: |
+          python scrapers/wttj/updater_wttj.py
+          
+  # 🧹 Agent 5 : Updater de APEC (Cadenas Temporel)
+  agent_apec_updaters:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Configuration Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Installation des dépendances
+        run: pip install -r requirements.txt
+      - name: Vérification de l'ancien stock
+        run: |
+          python scrapers/apec/updater_apec.py
+  # 🧹 Agent 6 : Updater de FranceTravail (Cadenas Temporel)
+  agent_updaters:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Configuration Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Installation des dépendances
+        run: pip install -r requirements.txt
+      - name: Vérification de l'ancien stock
+        run: |
+          python scrapers/francetravail/updater_francetravail.p
