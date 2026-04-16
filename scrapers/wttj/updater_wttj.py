@@ -8,41 +8,45 @@ import random
 import os
 import sys
 from datetime import datetime
+import pytz
+from supabase import create_client
+from tqdm import tqdm
 
 # --- CONFIGURATION ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
-CSV_PATH = os.path.join(project_root, "data", "enriched", "offres_wttj_full.csv")
-
 if project_root not in sys.path:
     sys.path.append(project_root)
-from utils import sauvegarde_securisee
+from utils import fetch_key, load_data
 
-# Ordre des colonnes
-ordre_colonnes = ["Titre", "Entreprise", "Ville", "Experience_Salaire_Infos", "Description_Complete", "URL", "Date_Publication", "Date_Expiration"]
+supabase_url = fetch_key("SUPABASE_URL")
+supabase_key = fetch_key("SUPABASE_KEY")
+supabase = create_client(supabase_url, supabase_key)
 
-if not os.path.exists(CSV_PATH):
-    print("❌ Pas de fichier historique trouvé.")
+timezone_fr = pytz.timezone('Europe/Paris')
+date_actuelle = datetime.now(timezone_fr).date()
+date_du_jour = pd.to_datetime(date_actuelle)
+
+# --- CHARGEMENT ---
+
+table_choisie = "Data_Analyst"
+print("☁️ Récupération des offres actives depuis Supabase...")
+df_base = load_data(supabase, table_name=table_choisie)
+
+df_a_verifier = df_base[
+    (df_base['Source'] == 'Welcome to the Jungle') & 
+    (df_base['Date_Expiration'].isna()) &
+    (df_base['Date_Publication'] != date_du_jour)
+]
+
+print(f"🕵️ {len(df_a_verifier)} offres à vérifier dans la base de données.")
+if len(df_a_verifier) == 0:
+    print(" ⚠️ Il n'y a aucune offre active de l'APEC.")
     exit()
 
-print("🔄 Chargement de la base de données...")
-# Moteur python pour tolérance aux erreurs
-try:
-    df = pd.read_csv(CSV_PATH, encoding='utf-8-sig', dtype=str, engine='python')
-except:
-    df = pd.read_csv(CSV_PATH, encoding='utf-8', dtype=str, engine='python')
+print(f"🕵️  Offres actives à vérifier : {len(df_a_verifier)}")
 
-if 'Date_Expiration' not in df.columns:
-    df['Date_Expiration'] = None
-
-# --- FILTRAGE : On ne vérifie que ce qui est vivant ---
-mask_a_verifier = df['Date_Expiration'].isna() | (df['Date_Expiration'] == "") | (df['Date_Expiration'].str.lower() == "nan") | (df['Date_Expiration'] == "Non spécifié")
-indices_a_verifier = df[mask_a_verifier].index
-
-print(f"📊 Total offres : {len(df)}")
-print(f"🕵️  Offres actives à vérifier : {len(indices_a_verifier)}")
-
-if len(indices_a_verifier) == 0:
+if len(df_a_verifier) == 0:
     print("✅ Tout est à jour.")
     exit()
 
@@ -57,17 +61,28 @@ print("\n🚀 Démarrage de la mise à jour WTTJ...")
 
 compteur_morts = 0
 compteur_vivants = 0
+compteur_doutes = 0
 modifications = False
+offres_a_mettre_a_jour = []
+liste_offres = df_a_verifier.to_dict(orient='records')
+
+for offre in liste_offres:
+    for cle, valeur in offre.items():
+        if pd.isna(valeur):
+            offre[cle] = None
+        elif isinstance(valeur, pd.Timestamp):
+            # On convertit le Timestamp en texte "AAAA-MM-JJ"
+            offre[cle] = valeur.strftime("%Y-%m-%d")
 
 try:
-    for i, idx in enumerate(indices_a_verifier):
-        url_cible = str(df.at[idx, 'URL'])
-        titre = str(df.at[idx, 'Titre'])
+    for i, offre in enumerate(tqdm(liste_offres, desc="Vérification du statut des offres")):
+        url_cible = offre.get('URL')
+        if not url_cible:
+                print(f"⚠️  Ligne {i} : Pas d'URL trouvée.")
+                continue    
         
-        print(f"[{i+1}/{len(indices_a_verifier)}] {titre[:30]}...", end=" ")
-        
-        try:
-            driver.get(url_cible)
+        try:          
+            driver.get(url_cible)      
             time.sleep(random.uniform(3, 5))
             
             url_actuelle = driver.current_url
@@ -105,33 +120,38 @@ try:
             # --- ACTION ---
             if est_morte:
                 date_jour = datetime.now().strftime("%Y-%m-%d")
-                df.at[idx, 'Date_Expiration'] = date_jour
-                print(f"❌ EXPIRÉE ({raison})")
+                offre['Date_Expiration'] = date_jour
+                offres_a_mettre_a_jour.append(offre)
+                print(f" ❌ EXPIRÉE ({raison})")
                 compteur_morts += 1
-                modifications = True
+                modifications = True             
+                         
             else:
                 print("✅ VIVANTE")
                 compteur_vivants += 1
 
-            # Sauvegarde intermédiaire
-            if modifications and i > 0 and i % 10 == 0:
-                df_temp = df.reindex(columns=ordre_colonnes)
-                sauvegarde_securisee(df_temp, CSV_PATH)
-                modifications = False
                 
         except Exception as e:
             print(f"⚠️ Bug : {e}")
 
+# --- GESTION DE L'ARRÊT MANUEL (CTRL+C) ---
 except KeyboardInterrupt:
-    print("\n🛑 Arrêt manuel !")
-    df = df.reindex(columns=ordre_colonnes)
-    sauvegarde_securisee(df, CSV_PATH)
+    print("\n🛑 Arrêt manuel ! Sauvegarde de ce qui a été fait...")
+
+# --- FERMETURE PROPRE ---
 finally:
-    df = df.reindex(columns=ordre_colonnes)
-    #df.to_csv(CSV_PATH, index=False, encoding='utf-8-sig')
-    sauvegarde_securisee(df, CSV_PATH)
+    # SAUVEGARDE FINALE    
+    if offres_a_mettre_a_jour:
+        print(f"\n📤 Envoi de {len(offres_a_mettre_a_jour)} mises à jour vers Supabase...")
+        # On envoie par paquets de 1000 (limite Supabase)
+        for i in range(0, len(offres_a_mettre_a_jour), 1000):
+            batch = offres_a_mettre_a_jour[i : i + 1000]
+            supabase.table(table_choisie).upsert(batch, on_conflict="URL").execute()
+        print("✅ Base de données synchronisée !")
+    else:
+        print("\n✅ Aucune offre à mettre à jour.")
     driver.quit()
-    print("\n🏁 Bilan :")
-    print(f"   ⚰️  Expirées : {compteur_morts}")
-    print(f"   ✅  Actives : {compteur_vivants}")
-    print("Fin du updater_wttj ==> Lancer le clean_wttj")
+    
+    print("\n🏁 Bilan Updater :")
+    print(f"   ⚰️  Offres passées en 'Expirée' : {compteur_morts}")
+    print(f"   ✅  Offres confirmées actives : {compteur_vivants}") 

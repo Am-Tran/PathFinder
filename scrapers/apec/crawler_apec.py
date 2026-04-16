@@ -3,6 +3,7 @@ import sys
 import pandas as pd
 import time
 import random
+import re
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -10,11 +11,21 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from datetime import datetime
+from supabase import create_client
 
-
+# --- CONFIGURATION ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
-OUTPUT_CSV = os.path.join(project_root, "data", "raw", "offres_apec_url.csv")
+if project_root not in sys.path:
+    sys.path.append(project_root)
+from utils import fetch_key, load_data
+
+supabase_url = fetch_key("SUPABASE_URL")
+supabase_key = fetch_key("SUPABASE_KEY")
+supabase = create_client(supabase_url, supabase_key)
+
+table_choisie = "Data_Analyst_test"
 
 if project_root not in sys.path:
     sys.path.append(project_root)
@@ -196,17 +207,26 @@ except Exception as e:
 
 finally:
     driver.quit()
-    print("\n🤖 Robot rentré à la base.")
+    if urls_trouvees_ce_jour:
+        print(f"\n📤 Envoi de {len(urls_trouvees_ce_jour)} nouvelles URLs vers Supabase...")
+        # SAUVEGARDE FINALE
+        date_jour = datetime.now().strftime("%Y-%m-%d")
+        donnees_a_inserer = []
+        for url in urls_trouvees_ce_jour:
+            donnees_a_inserer.append({
+                "URL": url,
+                "Source": "APEC",
+                "Date_Decouverte": date_jour,
+                "Statut": "A_SCRAPER" # Un petit tag utile pour ton scraper
+            })    
+        try:
+            for i in range(0, len(donnees_a_inserer), 1000):
+                batch = donnees_a_inserer[i:i+1000]            
+                supabase.table(table_choisie).upsert(batch, on_conflict="URL").execute()
+                
+            print("✅ SUCCÈS : Base de données mise à jour avec les nouvelles URLs.")
+        except Exception as e:
+            print(f"❌ Erreur lors de l'envoi à Supabase : {e}")
 
-# --- SAUVEGARDE ---
-
-if urls_trouvees_ce_jour:
-    os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)    
-    # On écrase l'ancien fichier de liste de courses, on veut repartir à neuf
-    df_urls = pd.DataFrame(urls_trouvees_ce_jour, columns=["URL"])
-    sauvegarde_securisee(df_urls, OUTPUT_CSV)
-    #df_urls.to_csv(OUTPUT_CSV, mode='w', header=False, index=False, encoding='utf-8-sig')
-    print(f"✅ SUCCÈS : {len(urls_trouvees_ce_jour)} nouvelles URLs sauvegardées dans 'offres_apec_url.csv'.")
-    print("👉 Prochaine étape : Lancez scraper_apec.py")
-else:
-    print("Ø Aucune nouvelle offre détectée par rapport à l'historique.")
+    else:
+        print("Ø Aucune nouvelle offre détectée par rapport à l'historique.")  

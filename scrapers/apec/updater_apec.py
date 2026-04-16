@@ -14,6 +14,7 @@ import sys
 from datetime import datetime
 from supabase import create_client
 from tqdm import tqdm
+import pytz
 
 # --- CONFIGURATION ---
 
@@ -27,15 +28,20 @@ supabase_url = fetch_key("SUPABASE_URL")
 supabase_key = fetch_key("SUPABASE_KEY")
 supabase = create_client(supabase_url, supabase_key)
 
+timezone_fr = pytz.timezone('Europe/Paris')
+date_actuelle = datetime.now(timezone_fr).date()
+date_du_jour = pd.to_datetime(date_actuelle)
+
 # --- CHARGEMENT ---
 
-table_choisie = "Data_Analyst_test"
+table_choisie = "Data_Analyst"
 print("☁️ Récupération des offres actives depuis Supabase...")
 df_base = load_data(supabase, table_name=table_choisie)
 
 df_a_verifier = df_base[
     (df_base['Source'] == 'APEC') & 
-    (df_base['Date_Expiration'].isna())
+    (df_base['Date_Expiration'].isna()) &
+    (df_base['Date_Publication'] != date_du_jour)
 ]
 
 print(f"🕵️ {len(df_a_verifier)} offres à vérifier dans la base de données.")

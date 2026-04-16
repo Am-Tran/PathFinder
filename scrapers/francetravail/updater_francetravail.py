@@ -5,6 +5,7 @@ import sys
 import re
 import time
 from datetime import datetime, timedelta
+import pytz
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
 import random
@@ -48,6 +49,10 @@ if not token:
     print("No token")
     exit()
 
+timezone_fr = pytz.timezone('Europe/Paris')
+date_actuelle = datetime.now(timezone_fr).date()
+date_du_jour = pd.to_datetime(date_actuelle)
+
 # --- CHARGEMENT ---
 
 table_choisie = "Data_Analyst"
@@ -56,7 +61,8 @@ df_base = load_data(supabase, table_name=table_choisie)
 
 df_a_verifier = df_base[
     (df_base['Source'] == 'France Travail') & 
-    (df_base['Date_Expiration'].isna())
+    (df_base['Date_Expiration'].isna()) &
+    (df_base['Date_Publication'] != date_du_jour)
 ]
 
 print(f"🕵️ {len(df_a_verifier)} offres à vérifier dans la base de données.")
