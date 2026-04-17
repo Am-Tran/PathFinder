@@ -104,4 +104,4 @@ jobs:
         run: pip install -r requirements.txt
       - name: Vérification de l'ancien stock
         run: |
-          python scrapers/francetravail/updater_francetravail.p
+          python scrapers/francetravail/updater_francetravail.py

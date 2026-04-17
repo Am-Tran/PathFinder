@@ -31,6 +31,9 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 from utils import sauvegarde_securisee
 
+INPUT_CSV = os.path.join(project_root, "data", "raw", "offres_apec_url.csv")
+OUTPUT_CSV = os.path.join(project_root, "data", "enriched", "offres_apec_full.csv")
+
 # --- FONCTION UTILITAIRE DE NETTOYAGE ---
 def extraire_id(url_brute):
     """
@@ -80,13 +83,13 @@ else:
 urls_trouvees_ce_jour = [] # On stockera ici les URLs propres trouvées aujourd'hui
 
 # --- CONFIGURATION ---
-URL_APEC = "https://www.apec.fr/candidat/recherche-emploi.html/emploi?motsCles=Data%20analyst"
+URL_APEC = "https://www.apec.fr/candidat/recherche-emploi.html/emploi?motsCles=Data%20analyst&tri=DatePublication_desc"
 PAGES_A_SCRAPER = 38  # 5 pages = environ 100 offres (L'Apec met 20 offres par page)
 
 # --- INITIALISATION DU ROBOT ---
 options = webdriver.ChromeOptions()
 options.add_argument("--disable-blink-features=AutomationControlled")
-options.add_argument("--headless") # Laisse commenté pour voir le robot travailler
+#options.add_argument("--headless") # Laisse commenté pour voir le robot travailler
 
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 driver.set_window_size(1920, 1080)
@@ -98,9 +101,10 @@ try:
     print("🍪 Tentative d'acceptation des cookies...")
     try:
         wait = WebDriverWait(driver, 10)
-        # L'ID du bouton "Tout accepter" sur Apec (souvent OneTrust)
-        btn_cookie = wait.until(EC.element_to_be_clickable((By.ID, "onetrust-accept-btn-handler")))
-        btn_cookie.click()
+        # L'ID du bouton "Tout accepter" sur Apec
+        selecteur_cookies = "#onetrust-accept-btn-handler, #didomi-notice-agree-button"
+        btn_cookie = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, selecteur_cookies)))
+        btn_cookie.click()        
         print("✅ Cookies acceptés !")
         time.sleep(2)
     except:
@@ -215,9 +219,9 @@ finally:
         for url in urls_trouvees_ce_jour:
             donnees_a_inserer.append({
                 "URL": url,
-                "Source": "APEC",
-                "Date_Decouverte": date_jour,
-                "Statut": "A_SCRAPER" # Un petit tag utile pour ton scraper
+                "Source": "APEC"
+                
+                #"Statut": "A_SCRAPER" # Un petit tag utile pour ton scraper
             })    
         try:
             for i in range(0, len(donnees_a_inserer), 1000):
@@ -227,6 +231,15 @@ finally:
             print("✅ SUCCÈS : Base de données mise à jour avec les nouvelles URLs.")
         except Exception as e:
             print(f"❌ Erreur lors de l'envoi à Supabase : {e}")
+        # --- 2. SAUVEGARDE LOCALE (Pour le Scraper V1) ---
+        try:
+            os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
+            df_urls = pd.DataFrame(urls_trouvees_ce_jour, columns=["URL"])
+            # On recrée le fichier pour le scraper
+            sauvegarde_securisee(df_urls, OUTPUT_CSV)
+            print(f"✅ SUCCÈS LOCAL : 'offres_apec_url.csv' généré pour le scraper.")
+        except Exception as e:
+            print(f"❌ Erreur lors de la création du CSV : {e}")
 
     else:
         print("Ø Aucune nouvelle offre détectée par rapport à l'historique.")  
