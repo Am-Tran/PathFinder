@@ -4,10 +4,13 @@ from datetime import datetime
 import re
 import csv
 import sys
+from supabase import create_client
+import pytz
 
 # ------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # region 1. --- CONFIGURATION ---
+table_choisie = "Data_Analyst"
 
 # On se place dynamiquement
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -19,8 +22,12 @@ if "scrapers" in current_dir:
 else:
     project_root = current_dir
 
+timezone_fr = pytz.timezone('Europe/Paris')
+date_actuelle = datetime.now(timezone_fr).date()
+date_du_jour = pd.to_datetime(date_actuelle)
+
 # Chemins des fichiers PROPRES
-FILE_FT = os.path.join(project_root, "data", "clean", "offres_francetravail_clean.csv")
+
 FILE_WTTJ = os.path.join(project_root, "data", "clean", "offres_wttj_clean.csv")
 FILE_APEC = os.path.join(project_root, "data", "clean", "offres_apec_clean.csv")
 
@@ -28,6 +35,18 @@ OUTPUT_CSV = os.path.join(project_root, "data", "clean", "global_job_market.csv"
 
 # Création du dossier final s'il n'existe pas
 os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
+
+
+if project_root not in sys.path:
+    sys.path.append(project_root)
+from utils import fetch_key, load_data
+
+
+print("☁️ Initialisation de Supabase...")
+supabase_url = fetch_key("SUPABASE_URL")
+supabase_key = fetch_key("SUPABASE_KEY")
+supabase = create_client(supabase_url, supabase_key)
+
 
 print("🧪 Démarrage de la fusion...")
 # endregion
@@ -104,6 +123,7 @@ def nettoyer_contrats(df):
         "Ddi": "CDD",  # Contrat à Durée Déterminée d'Insertion
         "Cui": "CDD",  # Contrat Unique Insertion
         "Cae": "CDD",  # Contrat d'accompagnement dans l'emploi
+        "Cee": "CDD",
         "Stage": "Stage / Alternance",
         "Alternance": "Stage / Alternance",
         "Apprentissage": "Stage / Alternance",
@@ -279,27 +299,31 @@ if os.path.exists(OUTPUT_CSV):
 # --------------------------------------------------
 
 # --- A. FRANCE TRAVAIL ---
-if os.path.exists(FILE_FT):
-    print("🔹 Chargement France Travail...")
-    df_ft = pd.read_csv(FILE_FT)
-    # Renommage pour standardiser
-    df_ft = df_ft.rename(columns={
-        "Ville_Clean": "Ville",
-        "Salaire_Annuel_Estime": "Salaire_Annuel",
-        "Description_Propre": "Description"
-    })
-    # Ajout colonnes manquantes
-    df_ft["Teletravail"] = "Non spécifié" 
-    df_ft["Date_Publication"] = df_ft["Date_Publication"].apply(normaliser_date)
-    df_ft["Date_Expiration"] = df_ft["Date_Expiration"].apply(normaliser_date)
-    
 
-    # On gère si certaines colonnes manquent dans le CSV source
-    for c in cols_globales:
-        if c not in df_ft.columns: df_ft[c] = None
-    dataframes.append(df_ft[cols_globales])
+print("📥 Récupération des offres France Travail depuis Supabase...")
+response = load_data(supabase, table_name=table_choisie)
+if response.empty:
+    print("✨ La base de données est vide.")    
 else:
-    print("⚠️ Fichier France Travail introuvable !")
+    # 🛠️ CORRECTION DATE : On s'assure que c'est un format date reconnu par Pandas
+    response['Date_Publication'] = pd.to_datetime(response['Date_Publication'], errors='coerce')
+
+    df_ft = response[
+        (response['Source'] == 'France Travail') & 
+        (response['Date_Expiration'].isna()) &
+        (response['Date_Publication'].dt.date <= date_actuelle)
+        ].copy()
+if not df_ft.empty:
+        print(f"✅ Chargé : {len(df_ft)} offres France Travail.")
+        
+        # ON AJOUTE A LA LISTE POUR LA FUSION !
+        for c in cols_globales:
+            if c not in df_ft.columns: df_ft[c] = None
+        dataframes.append(df_ft[cols_globales])
+else:
+    print("✨ Aucune offre France Travail trouvée dans la base pour aujourd'hui.")
+
+print(f"✅ Chargé : {len(df_ft)} offres France Travail.")
 
 # --- B. WTTJ ---
 if os.path.exists(FILE_WTTJ):
@@ -481,20 +505,7 @@ print(f"\n💰 Offres avec salaire : {df_final['Salaire_Annuel'].notna().sum()}"
 
 # region 6. --- ENVOI SUPABASE ---
 
-import os
-from dotenv import load_dotenv
-from supabase import create_client
 
-donnees_pour_supabase = df_final.to_dict(orient='records')
-load_dotenv()
-
-# Connexion
-supabase_url = os.getenv("SUPABASE_URL")
-supabase_key = os.getenv("SUPABASE_KEY")
-if not supabase_url or not supabase_key:
-    print("❌ Erreur : Identifiants Supabase manquants dans l'environnement.")
-    sys.exit(1)
-supabase = create_client(supabase_url, supabase_key)
 
 def upload_to_supabase(df):    
     # Conversion en dictionnaire
@@ -531,7 +542,7 @@ def upload_to_supabase(df):
         # On envoie par paquets pour éviter les erreurs de timeout si c'est très gros
         for i in range(0, len(data), batch_size):
             batch = data[i : i+batch_size]
-            supabase.table("Data_Analyst").upsert(batch, on_conflict="URL").execute()
+            supabase.table(table_choisie).upsert(batch, on_conflict="URL").execute()
             print(f"✅ Paquet {i//batch_size + 1} envoyé ({len(batch)} lignes)")
             print("✅ Données synchronisées avec succès !")
     except Exception as e:

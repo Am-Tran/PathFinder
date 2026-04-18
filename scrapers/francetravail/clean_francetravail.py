@@ -1,24 +1,46 @@
 import pandas as pd
 import os
 import re
+import sys
+from supabase import create_client
+import pytz
+from datetime import datetime
 
 # --- 1. CONFIGURATION ---
+table_choisie = "Data_Analyst"
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
+if project_root not in sys.path:
+    sys.path.append(project_root)
+from utils import fetch_key, load_data
 
-# Chemins (Adapter si ton script n'est pas dans un sous-dossier scrapers/...)
-INPUT_CSV = os.path.join(project_root, "data", "enriched", "offres_francetravail_full.csv")
-OUTPUT_CSV = os.path.join(project_root, "data", "clean", "offres_francetravail_clean.csv")
+print("☁️ Initialisation de Supabase...")
+supabase_url = fetch_key("SUPABASE_URL")
+supabase_key = fetch_key("SUPABASE_KEY")
+supabase = create_client(supabase_url, supabase_key)
 
-print(f"🧹 Démarrage du nettoyage pour : {INPUT_CSV}")
+
+timezone_fr = pytz.timezone('Europe/Paris')
+date_actuelle = datetime.now(timezone_fr).date()
+date_du_jour = pd.to_datetime(date_actuelle)
 
 # --- 2. CHARGEMENT ---
-try:
-    df = pd.read_csv(INPUT_CSV)
-    print(f"✅ Chargé : {len(df)} offres brutes.")
-except FileNotFoundError:
-    print("❌ Fichier introuvable. Vérifie le chemin.")
+print("📥 Récupération des offres France Travail depuis Supabase...")
+response = load_data(supabase, table_name=table_choisie)
+if response.empty:
+    print("✨ La base de données est vide.")
     exit()
+
+df = response[
+    (response['Source'] == 'France Travail') & 
+    (response['Date_Expiration'].isna()) &
+    (response['Date_Publication'].dt.date <= date_actuelle)
+    ].copy()
+if df.empty:
+    print("✨ Aucune offre France Travail trouvée dans la base.")
+    exit()
+print(f"✅ Chargé : {len(df)} offres brutes.")
 
 # --- 3. FONCTIONS DE NETTOYAGE ---
 
@@ -95,12 +117,12 @@ def nettoyer_salaire(texte):
 
     return int(valeur)
 
-def extraire_dept(texte):
-    # Entrée: "92 - Courbevoie" -> Sortie: "92"
-    if pd.isna(texte): return "Inconnu"
-    if " - " in str(texte):
-        return str(texte).split(" - ")[0].strip()
-    return "Inconnu"
+# def extraire_dept(texte):
+#     # Entrée: "92 - Courbevoie" -> Sortie: "92"
+#     if pd.isna(texte): return "Inconnu"
+#     if " - " in str(texte):
+#         return str(texte).split(" - ")[0].strip()
+#     return "Inconnu"
 
 def extraire_ville(texte):
     # Entrée: "92 - Courbevoie" -> Sortie: "Courbevoie"
@@ -122,37 +144,38 @@ def nettoyer_texte(texte):
     clean = str(texte).replace('\n', ' ').replace('\r', ' ')
     return " ".join(clean.split())
 
+
 # --- 4. APPLICATION DU NETTOYAGE ---
 
 print("⚙️ Traitement des colonnes...")
 
 # Date
-df['Date_Publication'] = df['Date_Creation'].apply(nettoyer_date)
+df['Date_Publication'] = df['Date_Publication'].apply(nettoyer_date)
 
 # Localisation
-df['Departement'] = df['Ville'].apply(extraire_dept)
-df['Ville_Clean'] = df['Ville'].apply(extraire_ville)
+#df['Departement'] = df['Ville'].apply(extraire_dept)
+df['Ville'] = df['Ville'].apply(extraire_ville)
 
 #Titre
 df['Titre'] = df['Titre'].astype(str).str.replace('"', '', regex=False).str.strip()
 df['Entreprise'] = df['Entreprise'].astype(str).str.replace('"', '', regex=False).str.strip()
 
 # Salaire
-df['Salaire_Annuel_Estime'] = df['Salaire'].apply(nettoyer_salaire)
+df['Salaire_Annuel'] = df['Salaire_Annuel'].apply(nettoyer_salaire)
 
 # Description (Pour lecture facile)
-df['Description_Propre'] = df['Description'].apply(nettoyer_texte)
+df['Description'] = df['Description'].apply(nettoyer_texte)
 
 # Date expiration
 if 'Date_Expiration' not in df.columns:
     df['Date_Expiration'] = None
 else:
     # On s'assure que c'est propre (pas de "nan" string)
-    df['Date_Expiration'] = df['Date_Expiration'].replace({'nan': None, 'NaN': None, '': None})
+    df['Date_Expiration'] = df['Date_Expiration'].apply(nettoyer_date)
 
 # --- 5. STATISTIQUES RAPIDES ---
-nb_salaires = df['Salaire_Annuel_Estime'].notna().sum()
-moyenne_salaire = df['Salaire_Annuel_Estime'].mean()
+nb_salaires = df['Salaire_Annuel'].notna().sum()
+moyenne_salaire = df['Salaire_Annuel'].mean()
 
 print(f"\n📊 Résumé après nettoyage :")
 print(f"   - Offres avec salaire détecté : {nb_salaires} / {len(df)}")
@@ -160,16 +183,33 @@ if nb_salaires > 0:
     print(f"   - Salaire moyen estimé : {moyenne_salaire:.0f} €/an")
 
 # --- 6. SAUVEGARDE ---
-# On sélectionne les colonnes propres pour le fichier final
-colonnes_finales = [
-    'Titre', 'Entreprise', 'Ville_Clean', 'Departement', 
-    'Type_Contrat', 'Salaire_Annuel_Estime', 'Date_Publication', 
-    'URL', 'Description_Propre', 'Date_Expiration', 'Source'
-]
+print("\n🚀 Envoi des données nettoyées vers Supabase...")
+df = df.astype(object).where(pd.notna(df), None)
+erreurs = 0
+for index, row in df.iterrows():
+    # On prépare le petit paquet de données propres pour cette ligne
+    donnees_propres = {
+        "Titre": row['Titre'],
+        "Entreprise": row['Entreprise'],
+        "Ville": row['Ville'],
+        "Salaire_Annuel": row['Salaire_Annuel'],
+        "Description": row['Description'],
+        "Date_Publication": row['Date_Publication'],
+        "Date_Expiration": row['Date_Expiration']
+    }
+    
+    try:
+        # On met à jour la ligne précise grâce à son 'id'
+        supabase.table(table_choisie).update(donnees_propres).eq("URL", row['URL']).execute()
+    except Exception as e:
+        erreurs += 1
+        if erreurs == 1:
+            print("\n🚨 --- ALERTE ROUGE : DÉTAIL DU CRASH --- 🚨")
+            print(f"❌ Le message de Supabase : {e}")
+            print(f"📦 Le paquet refusé : {donnees_propres}")
+            print(f"🆔 L'ID ciblé : {row.get('URL', 'URL INTROUVABLE')}")
+            print("-------------------------------------------\n")
 
-# On filtre si certaines colonnes n'existent pas (sécurité)
-cols_existantes = [c for c in colonnes_finales if c in df.columns]
-
-df[cols_existantes].to_csv(OUTPUT_CSV, index=False)
-print(f"\n✅ Terminé ! Fichier propre enregistré ici :")
-print(f"👉 {OUTPUT_CSV}")
+print(f"\n✅ Nettoyage terminé ! {len(df) - erreurs} offres mises à jour.")
+if erreurs > 0:
+    print(f"⚠️ Il y a eu {erreurs} erreurs lors de l'envoi.")

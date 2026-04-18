@@ -94,7 +94,7 @@ jobs:
         run: |
           python scrapers/apec/updater_apec.py
   # 🧹 Agent 6 : Updater de FranceTravail (Cadenas Temporel)
-  agent_updaters:
+  agent_ft_updaters:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3

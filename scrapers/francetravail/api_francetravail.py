@@ -7,12 +7,14 @@ from dotenv import load_dotenv
 from supabase import create_client
 
 # --- 1. CONFIGURATION (Remplis tes infos) ---
+table_choisie = "Data_Analyst"
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(os.path.dirname(current_dir))
 
 if root_dir not in sys.path:
     sys.path.append(root_dir)
-from utils import fetch_key, sauvegarde_securisee
+from utils import fetch_key
 
 CLIENT_ID = fetch_key("FT_CLIENT_ID")
 CLIENT_SECRET = fetch_key("FT_CLIENT_SECRET")
@@ -25,9 +27,6 @@ print("☁️ Initialisation de Supabase...")
 supabase_url = fetch_key("SUPABASE_URL")
 supabase_key = fetch_key("SUPABASE_KEY")
 supabase = create_client(supabase_url, supabase_key)
-table_choisie = "Data_Analyst_test"
-
-
 
 # --- 2. AUTHENTIFICATION (Récupération du Token) ---
 url_auth = "https://entreprise.francetravail.fr/connexion/oauth2/access_token?realm=%2Fpartenaire"
