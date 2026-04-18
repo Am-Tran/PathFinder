@@ -34,6 +34,8 @@ print(f"✅ Chargement de {len(df_source)} offres.")
 colonnes = ["Titre", "Entreprise", "Ville", "Experience_Salaire_Infos", "Description_Complete", "URL", "Date_Publication"]
 
 if not os.path.exists(OUTPUT_CSV):
+    # On s'assure que le dossier de destination existe sur GitHub Actions
+    os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
     pd.DataFrame(columns=colonnes).to_csv(OUTPUT_CSV, index=False)
     deja_faites = []
 else:
