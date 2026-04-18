@@ -89,7 +89,9 @@ PAGES_A_SCRAPER = 38  # 5 pages = environ 100 offres (L'Apec met 20 offres par p
 # --- INITIALISATION DU ROBOT ---
 options = webdriver.ChromeOptions()
 options.add_argument("--disable-blink-features=AutomationControlled")
-#options.add_argument("--headless") # Laisse commenté pour voir le robot travailler
+options.add_argument("--headless") # Laisse commenté pour voir le robot travailler
+options.add_argument("--no-sandbox") # Sécurité requise sur les serveurs Linux
+options.add_argument("--disable-dev-shm-usage") # Évite les crashs de mémoire (RAM)
 
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 driver.set_window_size(1920, 1080)
