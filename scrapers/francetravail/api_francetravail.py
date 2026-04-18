@@ -8,10 +8,13 @@ from dotenv import load_dotenv
 # --- 1. CONFIGURATION (Remplis tes infos) ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(os.path.dirname(current_dir))
-dotenv_path = os.path.join(root_dir, '.env')
-load_dotenv(dotenv_path)
-CLIENT_ID = os.getenv("FT_CLIENT_ID")
-CLIENT_SECRET = os.getenv("FT_CLIENT_SECRET")
+
+if root_dir not in sys.path:
+    sys.path.append(root_dir)
+from utils import fetch_key, sauvegarde_securisee
+
+CLIENT_ID = fetch_key("FT_CLIENT_ID")
+CLIENT_SECRET = fetch_key("FT_CLIENT_SECRET")
 
 if not CLIENT_ID or not CLIENT_SECRET:
     print("❌ ERREUR : Clés France Travail introuvables. Vérifiez le fichier .env")

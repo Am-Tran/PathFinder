@@ -151,30 +151,35 @@ def nettoyer_texte(texte):
 print("⚙️ Filtrage des offres invalides (Cookies, Expirées)...")
 
 # On applique le filtre
-df['Est_Valide'] = df.apply(est_offre_valide, axis=1)
-df_clean = df[df['Est_Valide'] == True].copy()
+try:
+    df['Est_Valide'] = df.apply(est_offre_valide, axis=1)
+    df_clean = df[df['Est_Valide'] == True].copy()
 
-lignes_supprimees = len(df) - len(df_clean)
-print(f"🗑️  Lignes supprimées (Bruit) : {lignes_supprimees}")
-print(f"💎 Lignes valides restantes : {len(df_clean)}")
+    lignes_supprimees = len(df) - len(df_clean)
+    print(f"🗑️  Lignes supprimées (Bruit) : {lignes_supprimees}")
+    print(f"💎 Lignes valides restantes : {len(df_clean)}")
 
-print("⚙️ Transformation des données...")
+    print("⚙️ Transformation des données...")
 
-# Salaire
-df_clean['Salaire_Annuel_Estime'] = df_clean['Salaire_Brut'].apply(extraire_salaire_apec)
+    # Salaire
+    df_clean['Salaire_Annuel_Estime'] = df_clean['Salaire_Brut'].apply(extraire_salaire_apec)
 
-# Ville
-df_clean['Ville_Clean'] = df_clean.apply(extraire_ville_regex, axis = 1)
+    # Ville
+    df_clean['Ville_Clean'] = df_clean.apply(extraire_ville_regex, axis = 1)
 
-# Contrat
-df_clean['Type_Contrat'] = df_clean.apply(extraire_contrat_regex, axis = 1)
+    # Contrat
+    df_clean['Type_Contrat'] = df_clean.apply(extraire_contrat_regex, axis = 1)
 
-# Nettoyage texte description
-df_clean['Description_Propre'] = df_clean['Description_Complete'].apply(nettoyer_texte)
+    # Nettoyage texte description
+    df_clean['Description_Propre'] = df_clean['Description_Complete'].apply(nettoyer_texte)
 
-# Nettoyage Titre/Entreprise
-df_clean['Titre'] = df_clean['Titre'].astype(str).str.strip()
-df_clean['Entreprise'] = df_clean['Entreprise'].astype(str).str.upper().str.strip()
+    # Nettoyage Titre/Entreprise
+    df_clean['Titre'] = df_clean['Titre'].astype(str).str.strip()
+    df_clean['Entreprise'] = df_clean['Entreprise'].astype(str).str.upper().str.strip()
+except Exception as e:
+    print(f"❌ Erreur critique lors de la transformation des données : {e}")
+    print("🛑 Arrêt d'urgence du nettoyeur pour protéger la base de données.")
+    exit()
 
 # --- 5. STATS ---
 nb_salaires = df_clean['Salaire_Annuel_Estime'].notna().sum()

@@ -23,8 +23,8 @@ supabase_url = fetch_key("SUPABASE_URL")
 supabase_key = fetch_key("SUPABASE_KEY")
 supabase = create_client(supabase_url, supabase_key)
 
-CLIENT_ID = os.getenv("FT_CLIENT_ID")
-CLIENT_SECRET = os.getenv("FT_CLIENT_SECRET")
+CLIENT_ID = fetch_key("FT_CLIENT_ID")
+CLIENT_SECRET = fetch_key("FT_CLIENT_SECRET")
 def get_token():
     url = "https://entreprise.francetravail.fr/connexion/oauth2/access_token?realm=%2Fpartenaire"
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
@@ -39,7 +39,7 @@ def get_token():
         if r.status_code == 200:
             return r.json()['access_token']
         else:
-            print(f"❌ Erreur Token : {r.status_code}")
+            print(f"❌ Erreur Token : {r.status_code} : {r.text}")
             return None
     except Exception as e:
         print(f"❌ Erreur connexion : {e}")

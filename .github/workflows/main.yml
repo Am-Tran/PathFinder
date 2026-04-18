@@ -10,6 +10,8 @@ on:
 env:
   SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
   SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+  FT_CLIENT_ID: ${{ secrets.FT_CLIENT_ID }}
+  FT_CLIENT_SECRET: ${{ secrets.FT_CLIENT_SECRET }}
 
 jobs:
   # 🤖 Agent 1 : France Travail

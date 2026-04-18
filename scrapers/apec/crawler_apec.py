@@ -31,8 +31,8 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 from utils import sauvegarde_securisee
 
-INPUT_CSV = os.path.join(project_root, "data", "raw", "offres_apec_url.csv")
-OUTPUT_CSV = os.path.join(project_root, "data", "enriched", "offres_apec_full.csv")
+OUTPUT_CSV = os.path.join(project_root, "data", "raw", "offres_apec_url.csv")
+
 
 # --- FONCTION UTILITAIRE DE NETTOYAGE ---
 def extraire_id(url_brute):
@@ -56,7 +56,7 @@ def extraire_id(url_brute):
     return id_offre.strip()
 
 # --- CHARGEMENT DE L'HISTORIQUE ---
-chemin_history = "data/enriched/offres_apec_full.csv"
+chemin_history = os.path.join(project_root, "data", "enriched", "offres_apec_full.csv")
 ids_connus = set()
 
 print("🔄 Chargement de l'historique...")
