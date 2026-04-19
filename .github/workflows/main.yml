@@ -107,3 +107,32 @@ jobs:
       - name: Vérification de l'ancien stock
         run: |
           python scrapers/francetravail/updater_francetravail.py
+  # 🌪️ Agent 7 : LA FUSION (Tourne à la toute fin)
+  agent_fusion:
+    needs: [agent_ft, agent_wttj, agent_apec]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Configuration Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Installation des dépendances
+        run: pip install -r requirements.txt
+        
+      - name: 📥 Récupérer CSV WTTJ
+        uses: actions/download-artifact@v4
+        continue-on-error: true # Ne crashe pas si WTTJ n'a rien trouvé ce jour-là
+        with:
+          name: wttj-csv
+          path: data/clean/
+          
+      - name: 📥 Récupérer CSV APEC
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: apec-csv
+          path: data/clean/
+          
+      - name: Lancement de la Fusion Finale
+        run: python fusion_csv.py # ⚠️ IMPORTANT : Si ton fichier s'appelle différemment ou est dans un dossier, corrige ce chemin (ex: python scrapers/fusion.py)

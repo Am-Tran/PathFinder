@@ -488,18 +488,18 @@ df_final['Handicap_Friendly'] = df_final['Description'].apply(detecter_rqth)
 # ======================================================================================================================================================
 
 # region 5. --- SAUVEGARDE LOCALE ---
-df_final.to_csv(OUTPUT_CSV,
-                index=False,
-                quoting=csv.QUOTE_ALL,
-                escapechar='\\',
-                encoding='utf-8-sig'
-                )
+# df_final.to_csv(OUTPUT_CSV,
+#                 index=False,
+#                 quoting=csv.QUOTE_ALL,
+#                 escapechar='\\',
+#                 encoding='utf-8-sig'
+#                 )
 
-print(f"\n✅ TERMINÉ ! Le fichier global est prêt :")
-print(f"👉 {OUTPUT_CSV}")
-print("\n📊 STATISTIQUES FINALES :")
-print(df_final["Source"].value_counts())
-print(f"\n💰 Offres avec salaire : {df_final['Salaire_Annuel'].notna().sum()}")
+# print(f"\n✅ TERMINÉ ! Le fichier global est prêt :")
+# print(f"👉 {OUTPUT_CSV}")
+# print("\n📊 STATISTIQUES FINALES :")
+# print(df_final["Source"].value_counts())
+# print(f"\n💰 Offres avec salaire : {df_final['Salaire_Annuel'].notna().sum()}")
 
 # endregion
 
