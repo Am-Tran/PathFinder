@@ -221,6 +221,7 @@ with tab_actuel:
 
     nb_offres = len(df_active)
     df_salaires = df_active[df_active['Salaire_Annuel'].notna()]
+    df_salaires['Salaire_Annuel'] = pd.to_numeric(df_salaires['Salaire_Annuel'], errors='coerce')
     salaire_moyen = df_salaires['Salaire_Annuel'].mean()
 
     col1.metric("Offres affichées",
