@@ -45,7 +45,8 @@ if os.path.exists(OUTPUT_CSV):
         print("⚠️ Fichier de sortie existant mais illisible ou vide.")
         pass
 else:
-    # Création du fichier vide    
+    # Création du fichier vide
+    os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)    
     pd.DataFrame(columns=ordre_colonnes).to_csv(OUTPUT_CSV, index=False, encoding='utf-8-sig')
 
 # --- 1. LE ROBOT ---
@@ -198,7 +199,7 @@ try:
                 "Date" : date_clean,
                 "Date_Expiration" : None
             }
-            
+                        
             df_new = pd.DataFrame([nouvelle_ligne], columns=ordre_colonnes)
             df_new.to_csv(OUTPUT_CSV, mode='a', header=False, index=False, encoding='utf-8-sig')
             
