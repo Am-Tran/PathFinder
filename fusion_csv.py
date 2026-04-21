@@ -120,6 +120,7 @@ def nettoyer_contrats(df):
         "Din": "CDI Intérimaire",
         "Cdi": "CDI",        
         "Cdd": "CDD",
+        "Sai": "CDD",
         "Ddi": "CDD",  # Contrat à Durée Déterminée d'Insertion
         "Cui": "CDD",  # Contrat Unique Insertion
         "Cae": "CDD",  # Contrat d'accompagnement dans l'emploi

@@ -37,6 +37,7 @@ df = response[
     (response['Date_Expiration'].isna()) &
     (response['Date_Publication'].dt.date <= date_actuelle)
     ].copy()
+
 if df.empty:
     print("✨ Aucune offre France Travail trouvée dans la base.")
     exit()
@@ -127,11 +128,17 @@ def nettoyer_salaire(texte):
 def extraire_ville(texte):
     # Entrée: "92 - Courbevoie" -> Sortie: "Courbevoie"
     if pd.isna(texte): return "Inconnu"
-    if " - " in str(texte):
-        parties = str(texte).split(" - ")
+    ville_brute = str(texte)
+    if " - " in str(ville_brute):
+        parties = str(ville_brute).split(" - ")
         if len(parties) > 1:
-            return parties[1].strip()
-    return str(texte)
+            ville_brute = parties[1]
+    regex_arrondissements = r'(?i)\s*(?:cedex\s*)?\d{1,2}(?:er|e|ème|eme)?(?:\s*arrondissement)?\b'
+    ville_propre = re.sub(regex_arrondissements, '', ville_brute)
+    ville_propre = re.sub(r'[\s\-,]+$', '', ville_propre).strip()
+    if not ville_propre:
+        return "Inconnu"
+    return ville_propre
 
 def nettoyer_date(texte):
     # Entrée: "2026-01-13T14:48..." -> Sortie: "2026-01-13"
