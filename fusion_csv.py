@@ -430,6 +430,7 @@ df_final = nettoyer_contrats(df_final)
 
 # === CALCUL DU NIVEAU D'EXPÉRIENCE ===
 print("🧠 Calcul des niveaux d'expérience (Analyse Salaires & Texte)...")
+df_final['Salaire_Annuel'] = pd.to_numeric(df_final['Salaire_Annuel'], errors='coerce')
 # On applique la fonction ligne par ligne (axis=1)
 df_final['Niveau'] = df_final.apply(determiner_niveau, axis=1)
 
