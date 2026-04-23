@@ -13,6 +13,7 @@ from supabase import create_client
 from tqdm import tqdm
 
 # --- CONFIGURATION ---
+table_choisie = "Data_Analyst"
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
 if project_root not in sys.path:
@@ -29,7 +30,6 @@ date_du_jour = pd.to_datetime(date_actuelle)
 
 # --- CHARGEMENT ---
 
-table_choisie = "Data_Analyst"
 print("☁️ Récupération des offres actives depuis Supabase...")
 df_base = load_data(supabase, table_name=table_choisie)
 
@@ -142,10 +142,15 @@ except KeyboardInterrupt:
 finally:
     # SAUVEGARDE FINALE    
     if offres_a_mettre_a_jour:
-        print(f"\n📤 Envoi de {len(offres_a_mettre_a_jour)} mises à jour vers Supabase...")
+        filtre_anti_doublons = {}
+        for offre in offres_a_mettre_a_jour:
+            url_de_loffre = offre['URL']
+            filtre_anti_doublons[url_de_loffre] = offre
+        offres_uniques = list(filtre_anti_doublons.values())
+        print(f"\n📤 Envoi de {len(offres_uniques)} mises à jour vers Supabase...")
         # On envoie par paquets de 1000 (limite Supabase)
-        for i in range(0, len(offres_a_mettre_a_jour), 1000):
-            batch = offres_a_mettre_a_jour[i : i + 1000]
+        for i in range(0, len(offres_uniques), 1000):
+            batch = offres_uniques[i : i + 1000]
             supabase.table(table_choisie).upsert(batch, on_conflict="URL").execute()
         print("✅ Base de données synchronisée !")
     else:

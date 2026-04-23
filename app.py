@@ -125,7 +125,8 @@ choix_source = st.sidebar.multiselect(
 selected_source = choix_source if choix_source else source_list
 
 # 2. Filtre Contrat
-contrat_list = sorted(df['Type_Contrat'].dropna().unique().tolist())
+#contrat_list = sorted(df['Type_Contrat'].dropna().unique().tolist())
+contrat_list = ["CDI", "CDD", "Stage / Alternance", "Intérim", "Freelance"]
 choix_contrat = st.sidebar.multiselect(
     "Type de Contrat", 
     contrat_list, 
