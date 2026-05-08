@@ -38,7 +38,7 @@ else:
 # --- CONFIGURATION ---
 options = webdriver.ChromeOptions()
 options.add_argument("--disable-blink-features=AutomationControlled")
-options.add_argument("--headless")
+#options.add_argument("--headless")
 
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 driver.set_window_size(1920, 1080)

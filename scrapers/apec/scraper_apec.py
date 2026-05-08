@@ -130,6 +130,10 @@ try:
         titre_reel = "Inconnu"
         description = ""
         try:
+            # On s'assure que c'est bien du texte et que ça commence par http
+            if not isinstance(url, str) or not url.startswith("http"):
+                print(f"⚠️ URL ignorée car invalide : {url}")
+                continue
             driver.get(url)
             
             # 🔨 ACTION : On tue les cookies dès l'arrivée (sur la 1ère page surtout)

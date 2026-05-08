@@ -2,17 +2,27 @@ import pandas as pd
 import sys
 import os
 import re
+from supabase import create_client
+import pytz
+from datetime import datetime
 
 # --- 1. CONFIGURATION ---
+table_choisie = "Data_Analyst_test"
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
-
-INPUT_CSV = os.path.join(project_root, "data", "enriched", "offres_apec_full.csv")
-OUTPUT_CSV = os.path.join(project_root, "data", "clean", "offres_apec_clean.csv")
-
 if project_root not in sys.path:
     sys.path.append(project_root)
-from utils import sauvegarde_securisee
+from utils import fetch_key, load_data
+
+INPUT_CSV = os.path.join(project_root, "data", "enriched", "offres_apec_full.csv")
+print("☁️ Initialisation de Supabase...")
+supabase_url = fetch_key("SUPABASE_URL")
+supabase_key = fetch_key("SUPABASE_KEY")
+supabase = create_client(supabase_url, supabase_key)
+
+timezone_fr = pytz.timezone('Europe/Paris')
+date_actuelle = datetime.now(timezone_fr).date()
 
 print(f"🧹 Démarrage du nettoyage APEC : {INPUT_CSV}")
 
@@ -114,7 +124,7 @@ def est_offre_valide(row):
         "paramétrer les cookies", 
         "mot de passe oublié", 
         "vous avez déjà un compte",
-        "l'offre", # Pour "L'offre n'est plus en ligne"
+        # Pour "L'offre n'est plus en ligne"
         "n'est plus en ligne",
         "accès recruteur",
         "erreur inattendue",
@@ -146,6 +156,7 @@ def nettoyer_texte(texte):
     clean = str(texte).replace('\n', ' ').replace('\r', ' ')
     return " ".join(clean.split())
 
+
 # --- 4. APPLICATION DU FILTRE ET NETTOYAGE ---
 
 print("⚙️ Filtrage des offres invalides (Cookies, Expirées)...")
@@ -160,6 +171,11 @@ try:
     print(f"💎 Lignes valides restantes : {len(df_clean)}")
 
     print("⚙️ Transformation des données...")
+
+    # Date
+    df_clean['Date'] = pd.to_datetime(df_clean['Date'], format='%d/%m/%Y', errors='coerce').dt.strftime('%Y-%m-%d')   
+    date_str = date_actuelle.strftime('%Y-%m-%d')
+    df_clean['Date'] = df_clean['Date'].fillna(date_str)
 
     # Salaire
     df_clean['Salaire_Annuel_Estime'] = df_clean['Salaire_Brut'].apply(extraire_salaire_apec)
@@ -176,6 +192,7 @@ try:
     # Nettoyage Titre/Entreprise
     df_clean['Titre'] = df_clean['Titre'].astype(str).str.strip()
     df_clean['Entreprise'] = df_clean['Entreprise'].astype(str).str.upper().str.strip()
+ 
 except Exception as e:
     print(f"❌ Erreur critique lors de la transformation des données : {e}")
     print("🛑 Arrêt d'urgence du nettoyeur pour protéger la base de données.")
@@ -192,14 +209,44 @@ if nb_salaires > 0:
     print(f"   - Moyenne : {moyenne:.0f} €")
 
 # --- 6. SAUVEGARDE ---
-colonnes_finales = [
-    'Titre', 'Entreprise', 'Ville_Clean', 'Type_Contrat', 
-    'Salaire_Annuel_Estime', 'URL', 'Description_Propre', 'Date', 'Date_Expiration'
+df_clean['Source'] = 'APEC'
+
+print("\n🚀 Préparation des données pour Supabase...")
+colonnes_doublons = ['Ville', 'Salaire_Annuel', 'Description', 'Date_Publication']
+df_clean = df_clean.drop(columns=[c for c in colonnes_doublons if c in df_clean.columns], errors='ignore')
+df_clean = df_clean.rename(columns={
+    'Ville_Clean': 'Ville',
+    'Salaire_Annuel_Estime': 'Salaire_Annuel',
+    'Description_Propre': 'Description',
+    'Date': 'Date_Publication'
+})
+colonnes_supabase = [
+    "Titre", "Entreprise", "Ville", "Type_Contrat", 
+    "Salaire_Annuel", "Description", "Date_Publication", 
+    "Source", "URL"
 ]
 
-df_clean['Source'] = 'Apec'
-colonnes_finales.append('Source')
+df_clean = df_clean[colonnes_supabase]
+df_clean = df_clean.astype(object).where(pd.notna(df_clean), None)
 
-sauvegarde_securisee(df_clean[colonnes_finales], OUTPUT_CSV)
-#df_clean[colonnes_finales].to_csv(OUTPUT_CSV, index=False)
-print(f"\n✅ Terminé ! Fichier propre : {OUTPUT_CSV}")
+print("\n🚀 Envoi des données nettoyées vers Supabase...")
+
+erreurs = 0
+liste_donnees = df_clean.to_dict(orient='records')
+
+for i in range(0, len(liste_donnees), 1000):
+    batch = liste_donnees[i : i + 1000]
+    try:
+        supabase.table(table_choisie).upsert(batch, on_conflict="URL").execute()
+    except Exception as e:
+        erreurs += 1
+        if erreurs == 1:
+            print("\n🚨 --- ALERTE ROUGE : DÉTAIL DU CRASH --- 🚨")
+            print(f"❌ Le message de Supabase : {e}")
+            print(f"📦 Le paquet refusé : {batch[0]}")
+            print(f"🆔 L'ID ciblé : {batch[0].get('URL', 'URL INTROUVABLE')}")
+            print("-------------------------------------------\n")
+
+print(f"\n✅ Nettoyage terminé ! {max(0, len(liste_donnees) - (erreurs*1000))} offres mises à jour.")
+if erreurs > 0:
+    print(f"⚠️ Il y a eu {erreurs} erreurs lors de l'envoi.")

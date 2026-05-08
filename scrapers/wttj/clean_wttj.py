@@ -3,15 +3,31 @@ import re
 import os
 import sys
 import unicodedata
+from supabase import create_client
+import pytz
+from datetime import datetime
 
 # ================= CONFIGURATION =================
+table_choisie = "Data_Analyst_test"
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
+if project_root not in sys.path:
+    sys.path.append(project_root)
+from utils import fetch_key, load_data
+
+print("☁️ Initialisation de Supabase...")
+supabase_url = fetch_key("SUPABASE_URL")
+supabase_key = fetch_key("SUPABASE_KEY")
+supabase = create_client(supabase_url, supabase_key)
+
+timezone_fr = pytz.timezone('Europe/Paris')
+date_actuelle = datetime.now(timezone_fr).date()
+date_du_jour = pd.to_datetime(date_actuelle)
 
 
 INPUT_CSV = os.path.join(project_root, "data", "enriched", "offres_wttj_full.csv")
-OUTPUT_CSV = os.path.join(project_root, "data", "clean", "offres_wttj_clean.csv")
+# OUTPUT_CSV = os.path.join(project_root, "data", "clean", "offres_wttj_clean.csv")
 
 if project_root not in sys.path:
     sys.path.append(project_root)
@@ -215,27 +231,41 @@ def main():
         df['Niveau'] = df['Niveau'].fillna('Non spécifié')
     df['Niveau'] = df.apply(deduire_niveau, axis=1)
 
-    # Tes catégories officielles    
-    cols_finales = [
-        'Titre', 'Entreprise', 'Ville', 'Type_Contrat', 
-        'Salaire_Annuel_Estime', 'Niveau', 'Description_Propre', 
-        'URL', 'Date_Publication','Date_Expiration', 'Source'
+    print("\n🚀 Préparation des données pour Supabase...")
+    df_clean = df.rename(columns={
+        'Salaire_Annuel_Estime': 'Salaire_Annuel',
+        'Description_Propre': 'Description'
+    })
+    colonnes_supabase = [
+        "Titre", "Entreprise", "Ville", "Type_Contrat", 
+        "Salaire_Annuel", "Description", "Date_Publication", 
+        "Date_Expiration", "Source", "URL", "Niveau"
     ]
-    for col in cols_finales:
-        if col not in df.columns:
-            df[col] = None
 
-    df_clean = df[cols_finales]
-
-    # Sauvegarde
-    #df.to_csv(OUTPUT_CSV, index=False)
-    sauvegarde_securisee(df_clean, OUTPUT_CSV)
+    df_clean = df_clean[colonnes_supabase]
+    df_clean = df_clean.astype(object).where(pd.notna(df_clean), None)
     
-    print("-" * 40)
-    print(f"✅ Terminé ! {OUTPUT_CSV} mis à jour.")
-    print("Nouvelle répartition :")
-    print(df['Niveau'].value_counts())
-    print("-" * 40)
+    print("\n🚀 Envoi des données nettoyées vers Supabase...")
+    
+    erreurs = 0
+    liste_donnees = df_clean.to_dict(orient='records')
+    
+    for i in range(0, len(liste_donnees), 1000):
+        batch = liste_donnees[i : i + 1000]
+        try:
+            supabase.table(table_choisie).upsert(batch, on_conflict="URL").execute()
+        except Exception as e:
+            erreurs += 1
+            if erreurs == 1:
+                print("\n🚨 --- ALERTE ROUGE : DÉTAIL DU CRASH --- 🚨")
+                print(f"❌ Le message de Supabase : {e}")
+                print(f"📦 Le paquet refusé : {batch[0]}")
+                print(f"🆔 L'ID ciblé : {batch[0].get('URL', 'URL INTROUVABLE')}")
+                print("-------------------------------------------\n")
+
+    print(f"\n✅ Nettoyage terminé ! {len(liste_donnees) - (erreurs*1000)} offres mises à jour.")
+    if erreurs > 0:
+        print(f"⚠️ Il y a eu {erreurs} erreurs lors de l'envoi.")
 
 if __name__ == "__main__":
     main()

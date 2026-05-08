@@ -10,7 +10,7 @@ import pytz
 # ------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # region 1. --- CONFIGURATION ---
-table_choisie = "Data_Analyst"
+table_choisie = "Data_Analyst_test"
 
 # On se place dynamiquement
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -29,13 +29,6 @@ date_du_jour = pd.to_datetime(date_actuelle)
 # Chemins des fichiers PROPRES
 
 FILE_WTTJ = os.path.join(project_root, "data", "clean", "offres_wttj_clean.csv")
-FILE_APEC = os.path.join(project_root, "data", "clean", "offres_apec_clean.csv")
-
-OUTPUT_CSV = os.path.join(project_root, "data", "clean", "global_job_market.csv")
-
-# Création du dossier final s'il n'existe pas
-os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
-
 
 if project_root not in sys.path:
     sys.path.append(project_root)
@@ -285,21 +278,7 @@ cols_globales = [
 ]
 
 
-# --- CHARGEMENT DE L'HISTORIQUE ---
-if os.path.exists(OUTPUT_CSV):
-    print(f"📜 Chargement de l'historique : {OUTPUT_CSV}")
-    try:
-        df_hist = pd.read_csv(OUTPUT_CSV)
-        # On normalise aussi l'historique pour être sûr
-        df_hist["Date_Publication"] = df_hist["Date_Publication"].apply(normaliser_date)
-        df_hist["Date_Expiration"] = df_hist["Date_Expiration"].apply(normaliser_date)
-        dataframes.append(df_hist)
-    except:
-        print("⚠️ Historique illisible, on repart de zéro.")
-
-# --------------------------------------------------
-
-# --- A. FRANCE TRAVAIL ---
+# --- RECUPERATION SUPABASE ---
 
 print("📥 Récupération des offres France Travail depuis Supabase...")
 response = load_data(supabase, table_name=table_choisie)
@@ -314,19 +293,22 @@ else:
         (response['Date_Expiration'].isna()) &
         (response['Date_Publication'].dt.date <= date_actuelle)
         ].copy()
-if not df_ft.empty:
-        print(f"✅ Chargé : {len(df_ft)} offres France Travail.")
-        
-        # ON AJOUTE A LA LISTE POUR LA FUSION !
-        for c in cols_globales:
-            if c not in df_ft.columns: df_ft[c] = None
-        dataframes.append(df_ft[cols_globales])
-else:
-    print("✨ Aucune offre France Travail trouvée dans la base pour aujourd'hui.")
+    
+    df_apec = response[
+        (response['Source'] == 'APEC') & 
+        (response['Date_Expiration'].isna()) &
+        (response['Date_Publication'].dt.date <= date_actuelle)
+        ].copy()
+    
+    for df_temp, nom in [(df_ft, "France Travail"), (df_apec, "APEC")]:
+        if not df_temp.empty:
+            print(f"✅ Chargé : {len(df_temp)} offres {nom}.")            
+            for c in cols_globales:
+                if c not in df_temp.columns: df_temp[c] = None
+            dataframes.append(df_temp[cols_globales])    
 
-print(f"✅ Chargé : {len(df_ft)} offres France Travail.")
 
-# --- B. WTTJ ---
+# --- WTTJ ---
 if os.path.exists(FILE_WTTJ):
     print("🔹 Chargement WTTJ...")
     df_wttj = pd.read_csv(FILE_WTTJ)
@@ -336,12 +318,7 @@ if os.path.exists(FILE_WTTJ):
         "Description_Propre": "Description",
         "Date": "Date_Publication"
     })
-
-    #Correction nom de ville
-    # bug_text = "visibilité du contenu"
-    # df_wttj.loc[df_wttj['ville'].str.contains(bug_text, case=False, na=False), 'ville'] = "Paris (75)"
     
-    # Ajout Source et Date (Aujourd'hui)
     df_wttj["Source"] = "Welcome to the Jungle"
     df_wttj["Date_Publication"] = df_wttj["Date_Publication"].apply(normaliser_date)    
     df_wttj["Date_Expiration"] = df_wttj["Date_Expiration"].apply(normaliser_date)
@@ -349,31 +326,11 @@ if os.path.exists(FILE_WTTJ):
     for c in cols_globales:
         if c not in df_wttj.columns: df_wttj[c] = None
     dataframes.append(df_wttj[cols_globales])
+    print(f"✅ Chargé : {len(df_wttj)} offres WTTJ.")
 else:
     print("⚠️ Fichier WTTJ introuvable !")
 
-# --- C. APEC ---
-if os.path.exists(FILE_APEC):
-    print("🔹 Chargement APEC...")
-    df_apec = pd.read_csv(FILE_APEC)
-    
-    df_apec = df_apec.rename(columns={
-        "Ville_Clean": "Ville",
-        "Salaire_Annuel_Estime": "Salaire_Annuel",
-        "Description_Propre": "Description",
-        "Date": "Date_Publication"
-    })
-    
-    df_apec["Source"] = "APEC"    
-    df_apec["Teletravail"] = "Non spécifié"
-    df_apec["Date_Publication"] = df_apec["Date_Publication"].apply(normaliser_date)
-    df_apec["Date_Expiration"] = df_apec["Date_Expiration"].apply(normaliser_date)
-    
-    for c in cols_globales:
-        if c not in df_apec.columns: df_apec[c] = None
-    dataframes.append(df_apec[cols_globales])
-else:
-    print("⚠️ Fichier APEC introuvable !")
+
 # endregion
 
 # ======================================================================================================================================================
@@ -537,19 +494,25 @@ def upload_to_supabase(df):
     # On utilise 'on_conflict' pour dire à Supabase : 
     # "Si tu vois la même URL, mets à jour la ligne au lieu d'en créer une nouvelle"
     batch_size = 1000
-    try:
-        print("Répartition avant envoi :")
-        print(df_final['Source'].value_counts())
-        print(f"📤 Envoi de {len(data)} offres vers Supabase...")
-        # On envoie par paquets pour éviter les erreurs de timeout si c'est très gros
-        for i in range(0, len(data), batch_size):
-            batch = data[i : i+batch_size]
+    
+    print("Répartition avant envoi :")
+    print(df_final['Source'].value_counts())
+    print(f"📤 Envoi de {len(data)} offres vers Supabase...")
+    # On envoie par paquets pour éviter les erreurs de timeout si c'est très gros
+    erreurs = 0
+    for i in range(0, len(data), batch_size):
+        batch = data[i : i+batch_size]
+        try:            
             supabase.table(table_choisie).upsert(batch, on_conflict="URL").execute()
             print(f"✅ Paquet {i//batch_size + 1} envoyé ({len(batch)} lignes)")
             print("✅ Données synchronisées avec succès !")
-    except Exception as e:
-        print(f"❌ Erreur lors de l'envoi à Supabase: {e}")
-        sys.exit(1)
+        except Exception as e:
+            print(f"❌ Erreur lors de l'envoi {i//batch_size + 1} à Supabase: {e}")
+            erreurs += 1        
+    if erreurs == 0:
+        print("✅ Toutes les données ont été synchronisées avec succès !")
+    else:
+        print(f"⚠️ Fusion terminée, mais {erreurs} paquets ont échoué.")   
 
 upload_to_supabase(df_final)
 
