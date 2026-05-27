@@ -8,7 +8,7 @@ import pytz
 from datetime import datetime
 
 # ================= CONFIGURATION =================
-table_choisie = "Data_Analyst_test"
+table_choisie = "Data_Analyst"
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
@@ -24,14 +24,6 @@ supabase = create_client(supabase_url, supabase_key)
 timezone_fr = pytz.timezone('Europe/Paris')
 date_actuelle = datetime.now(timezone_fr).date()
 date_du_jour = pd.to_datetime(date_actuelle)
-
-
-INPUT_CSV = os.path.join(project_root, "data", "enriched", "offres_wttj_full.csv")
-# OUTPUT_CSV = os.path.join(project_root, "data", "clean", "offres_wttj_clean.csv")
-
-if project_root not in sys.path:
-    sys.path.append(project_root)
-from utils import sauvegarde_securisee
 
 # =================================================
 
@@ -52,8 +44,12 @@ def deduire_niveau(row):
     current = str(row['Niveau']).strip()
     if current in categories_valides and current != 'Non spécifié':
         return current
+    
+    desc = row.get('Description', '')
+    if pd.isna(desc):
+        desc = ""
 
-    text_complet = (str(row['Titre']) + " " + str(row['Description_Complete'])).lower()
+    text_complet = (str(row['Titre']) + " " + str(row['Description'])).lower()
     titre = row['Titre'].lower()
 
     # 1. ANALYSE TITRE (Les mots-clés forts)
@@ -181,49 +177,64 @@ def extraire_ville_wttj(infos_str):
 # -----------------------------------------------------------------------------------------------------------------------------
 
 def nettoyer_texte(texte):
-    if pd.isna(texte): return ""
+    if pd.isna(texte) or texte == "":
+        return None
     return " ".join(str(texte).split())
 
 # -----------------------------------------------------------------------------------------------------------------------------
 
 def main():
-    print(f"📂 Chargement de {INPUT_CSV}...")
-    try:
-        df = pd.read_csv(INPUT_CSV)
-    except FileNotFoundError:
-        print("❌ Fichier introuvable.")
-        return
+    # --- CHARGEMENT ---
+
+    print("☁️ Récupération des offres actives depuis Supabase...")
+    df = load_data(supabase, table_name=table_choisie,
+                        source_filter="Welcome to the Jungle",
+                        only_active=True,
+                        date_publication_filter=date_actuelle.strftime('%Y-%m-%d'),
+                        limit=None)
+
+    # df = df_base[
+    #     (df_base['Source'] == 'Welcome to the Jungle') & 
+    #     (df_base['Date_Expiration'].isna()) &
+    #     (df_base['Date_Publication'] == date_actuelle)
+    # ].copy()
+
+    print(f"🕵️ {len(df)} offres à vérifier dans la base de données.")
+    if len(df) == 0:
+        print(" ⚠️ Il n'y a aucune offre active de WTTJ.")
+        exit()
     
-    for col in ['Titre', 'Description_Complete', 'Ville']:
+    for col in ['Titre', 'Description', 'Ville']:
         if col in df.columns:
             df[col] = df[col].apply(normaliser_unicode)   
     
 
     # Nettoyage
     df['Titre'] = df['Titre'].fillna('Non spécifié').astype(str)      
-    df['Description_Propre'] = df['Description_Complete'].apply(nettoyer_texte)
+    df['Description'] = df['Description'].apply(nettoyer_texte)
     df['Entreprise'] = df['Entreprise'].str.upper().str.strip()
-    df['Source'] = 'Welcome to the Jungle'
+    # df['Source'] = 'Welcome to the Jungle'
 
     print("⚙️ Extraction des villes manquantes...")
     mask_ville_manquante = (
-    df['Ville'].isna() | 
-    (df['Ville'] == "") | 
-    df['Ville'].str.contains("visibilité", case=False, na=True) |
+    (df['Ville'].isna()) | 
+    (df['Ville'] == "") |
+    (df['Ville'].str.contains("visibilité", case=False, na=True)) |
     (df['Ville'] == "Non spécifié")
     )
-    df.loc[mask_ville_manquante, 'Ville'] = df.loc[mask_ville_manquante, 'Description_Complete'].apply(extraire_ville_wttj) 
+    df.loc[mask_ville_manquante, 'Ville'] = df.loc[mask_ville_manquante, 'Description'].apply(extraire_ville_wttj) 
 
 
     print("⚙️ Extraction Salaires & Contrats...")
-    if 'Experience_Salaire_Infos' in df.columns:
-        df['Salaire_Annuel_Estime'] = df['Experience_Salaire_Infos'].apply(extraire_salaire_wttj)
-        df['Type_Contrat'] = df['Experience_Salaire_Infos'].apply(extraire_contrat_wttj)
-    else:
-        print("⚠️ Colonne 'Experience_Salaire_Infos' introuvable. Pas de salaire extrait.")
-        df['Salaire_Annuel_Estime'] = None
-        df['Type_Contrat'] = "Non spécifié"
-    
+    if 'Salaire_Annuel' not in df.columns:
+        df['Salaire_Annuel'] = None
+    mask_contrat = df['Type_Contrat'].isna() | (df['Type_Contrat'] == "Non spécifié") | (df['Type_Contrat'] == "")
+    if mask_contrat.any():
+        df.loc[mask_contrat, 'Type_Contrat'] = df.loc[mask_contrat, 'Description'].apply(extraire_contrat_wttj)
+    mask_salaire = df['Salaire_Annuel'].isna()
+    if mask_salaire.any():
+        df.loc[mask_salaire, 'Salaire_Annuel'] = df.loc[mask_salaire, 'Description'].apply(extraire_salaire_wttj)       
+        
     print("🧠 Calcul des niveaux...")
     if 'Niveau' not in df.columns:
         df['Niveau'] = 'Non spécifié'
@@ -231,29 +242,30 @@ def main():
         df['Niveau'] = df['Niveau'].fillna('Non spécifié')
     df['Niveau'] = df.apply(deduire_niveau, axis=1)
 
-    print("\n🚀 Préparation des données pour Supabase...")
-    df_clean = df.rename(columns={
-        'Salaire_Annuel_Estime': 'Salaire_Annuel',
-        'Description_Propre': 'Description'
-    })
+    print("\n🚀 Préparation des données pour Supabase...")   
     colonnes_supabase = [
         "Titre", "Entreprise", "Ville", "Type_Contrat", 
         "Salaire_Annuel", "Description", "Date_Publication", 
         "Date_Expiration", "Source", "URL", "Niveau"
     ]
 
-    df_clean = df_clean[colonnes_supabase]
+    df_clean = df[colonnes_supabase].copy()
+    for col in ["Date_Publication", "Date_Expiration"]:
+        if col in df_clean.columns:            
+            df_clean[col] = df_clean[col].dt.strftime('%Y-%m-%d')
     df_clean = df_clean.astype(object).where(pd.notna(df_clean), None)
     
     print("\n🚀 Envoi des données nettoyées vers Supabase...")
     
     erreurs = 0
+    offres_sauvegardees = 0
     liste_donnees = df_clean.to_dict(orient='records')
     
     for i in range(0, len(liste_donnees), 1000):
         batch = liste_donnees[i : i + 1000]
         try:
             supabase.table(table_choisie).upsert(batch, on_conflict="URL").execute()
+            offres_sauvegardees += len(batch)
         except Exception as e:
             erreurs += 1
             if erreurs == 1:
@@ -263,7 +275,7 @@ def main():
                 print(f"🆔 L'ID ciblé : {batch[0].get('URL', 'URL INTROUVABLE')}")
                 print("-------------------------------------------\n")
 
-    print(f"\n✅ Nettoyage terminé ! {len(liste_donnees) - (erreurs*1000)} offres mises à jour.")
+    print(f"\n✅ Nettoyage terminé ! {offres_sauvegardees} offres mises à jour.")
     if erreurs > 0:
         print(f"⚠️ Il y a eu {erreurs} erreurs lors de l'envoi.")
 

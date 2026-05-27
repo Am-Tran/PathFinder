@@ -27,16 +27,20 @@ date_du_jour = pd.to_datetime(date_actuelle)
 
 # --- 2. CHARGEMENT ---
 print("📥 Récupération des offres France Travail depuis Supabase...")
-response = load_data(supabase, table_name=table_choisie)
-if response.empty:
+df = load_data(supabase, table_name=table_choisie,
+                     source_filter="France Travail",
+                     only_active=True,
+                     date_publication_filter=date_actuelle.strftime('%Y-%m-%d'),
+                     limit=None)
+if df.empty:
     print("✨ La base de données est vide.")
     exit()
 
-df = response[
-    (response['Source'] == 'France Travail') & 
-    (response['Date_Expiration'].isna()) &
-    (response['Date_Publication'].dt.date <= date_actuelle)
-    ].copy()
+# df = response[
+#     (response['Source'] == 'France Travail') & 
+#     (response['Date_Expiration'].isna()) &
+#     (response['Date_Publication'].dt.date <= date_actuelle)
+#     ].copy()
 
 if df.empty:
     print("✨ Aucune offre France Travail trouvée dans la base.")

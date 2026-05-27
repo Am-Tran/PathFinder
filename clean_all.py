@@ -26,9 +26,6 @@ timezone_fr = pytz.timezone('Europe/Paris')
 date_actuelle = datetime.now(timezone_fr).date()
 date_du_jour = pd.to_datetime(date_actuelle)
 
-# Chemins des fichiers PROPRES
-
-FILE_WTTJ = os.path.join(project_root, "data", "clean", "offres_wttj_clean.csv")
 
 if project_root not in sys.path:
     sys.path.append(project_root)
@@ -274,14 +271,19 @@ def detecter_rqth(text):
 dataframes = []
 cols_globales = [
     "Titre", "Entreprise", "Ville", "Salaire_Annuel", "Type_Contrat", 
-    "Teletravail", "Date_Publication", "Date_Expiration", "Source", "URL", "Description"
+    "Teletravail", "Date_Publication", "Date_Expiration", "Source", "URL", "Description", "Metier",
+    "Niveau", "Tech_Stack", "Handicap_Friendly"
 ]
 
 
 # --- RECUPERATION SUPABASE ---
 
-print("📥 Récupération des offres France Travail depuis Supabase...")
-response = load_data(supabase, table_name=table_choisie)
+print("📥 Récupération des offres depuis Supabase...")
+response = load_data(supabase, table_name=table_choisie,
+                     source_filter=None,
+                     only_active=True,
+                     date_publication_filter=date_actuelle.strftime('%Y-%m-%d'),
+                     limit=None)
 if response.empty:
     print("✨ La base de données est vide.")    
 else:
@@ -300,36 +302,19 @@ else:
         (response['Date_Publication'].dt.date <= date_actuelle)
         ].copy()
     
-    for df_temp, nom in [(df_ft, "France Travail"), (df_apec, "APEC")]:
+    df_wttj = response[
+        (response['Source'] == 'Welcome to the Jungle') & 
+        (response['Date_Expiration'].isna()) &
+        (response['Date_Publication'].dt.date <= date_actuelle)
+        ].copy()
+    
+    
+    for df_temp, nom in [(df_ft, "France Travail"), (df_apec, "APEC"), (df_wttj, "Welcome to the Jungle")]:
         if not df_temp.empty:
             print(f"✅ Chargé : {len(df_temp)} offres {nom}.")            
             for c in cols_globales:
                 if c not in df_temp.columns: df_temp[c] = None
-            dataframes.append(df_temp[cols_globales])    
-
-
-# --- WTTJ ---
-if os.path.exists(FILE_WTTJ):
-    print("🔹 Chargement WTTJ...")
-    df_wttj = pd.read_csv(FILE_WTTJ)
-    
-    df_wttj = df_wttj.rename(columns={        
-        "Salaire_Annuel_Estime": "Salaire_Annuel",
-        "Description_Propre": "Description",
-        "Date": "Date_Publication"
-    })
-    
-    df_wttj["Source"] = "Welcome to the Jungle"
-    df_wttj["Date_Publication"] = df_wttj["Date_Publication"].apply(normaliser_date)    
-    df_wttj["Date_Expiration"] = df_wttj["Date_Expiration"].apply(normaliser_date)
-    
-    for c in cols_globales:
-        if c not in df_wttj.columns: df_wttj[c] = None
-    dataframes.append(df_wttj[cols_globales])
-    print(f"✅ Chargé : {len(df_wttj)} offres WTTJ.")
-else:
-    print("⚠️ Fichier WTTJ introuvable !")
-
+            dataframes.append(df_temp[cols_globales])   
 
 # endregion
 

@@ -14,7 +14,7 @@ root_dir = os.path.dirname(os.path.dirname(current_dir))
 
 if root_dir not in sys.path:
     sys.path.append(root_dir)
-from utils import fetch_key
+from utils import fetch_key, mapping_metier
 
 CLIENT_ID = fetch_key("FT_CLIENT_ID")
 CLIENT_SECRET = fetch_key("FT_CLIENT_SECRET")
@@ -47,25 +47,6 @@ if resp_auth.status_code != 200:
 token = resp_auth.json()['access_token']
 print("✅ Token valide.")
 
-# --- 3. CHARGEMENT DE L'HISTORIQUE ---
-# existing_ids = set()
-# df_old = pd.DataFrame()
-
-# if os.path.exists(CSV_PATH):
-#     print(f"📂 Lecture du fichier existant : {CSV_PATH}")
-#     df_old = pd.read_csv(CSV_PATH, dtype=str)
-    
-#     # On essaye de trouver la colonne ID (souvent appelée 'id' ou 'Reference')
-#     # Ajustez le nom si votre CSV a un nom de colonne différent pour l'identifiant
-#     if 'id' in df_old.columns:
-#         existing_ids = set(df_old['id'].tolist())
-#     elif 'URL' in df_old.columns:
-#         # Si on n'a pas l'ID, on extrait l'ID depuis l'URL (souvent à la fin)        
-#         existing_ids = set(df_old['URL'].apply(lambda x: x.split('/')[-1] if isinstance(x, str) else ""))
-    
-#     print(f"📚 {len(existing_ids)} offres déjà en mémoire (on ne les recopiera pas).")
-# else:
-#     print("✨ Aucun fichier existant, on commence à zéro.")
 
 # --- 3. LA BOUCLE DE RÉCUPÉRATION ---
 url_search = "https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search"
@@ -75,13 +56,13 @@ headers_search = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
-mapping_metier = {
-    "Data Analyst": "Data Analyst",
-    "Analyste de données": "Data Analyst",
-    "Data Scientist": "Data Scientist",
-    "Business Analyst": "Business Analyst",
-    "Business Intelligence": "Business Analyst"
-}
+# mapping_metier = {
+#     "Data Analyst": "Data Analyst",
+#     "Analyste de données": "Data Analyst",
+#     "Data Scientist": "Data Scientist",
+#     "Business Analyst": "Business Analyst",
+#     "Business Intelligence": "Business Analyst"
+# }
 all_offres_data = [] # On va stocker toutes les offres ici
 existing_ids = set()
 ids_recuperes = set() #Enlever les doublons

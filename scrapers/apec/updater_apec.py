@@ -36,11 +36,18 @@ date_du_jour = pd.to_datetime(date_actuelle)
 
 table_choisie = "Data_Analyst"
 print("☁️ Récupération des offres actives depuis Supabase...")
-df_base = load_data(supabase, table_name=table_choisie)
+df_base = load_data(supabase, table_name=table_choisie,
+                    source_filter="APEC",
+                    only_active=True,
+                    
+                    limit=None)
+if df_base.empty:
+        print("✅ Aucun ancien stock à vérifier.")
+        exit()
 
 df_a_verifier = df_base[
-    (df_base['Source'] == 'APEC') & 
-    (df_base['Date_Expiration'].isna()) &
+    # (df_base['Source'] == 'APEC') & 
+    # (df_base['Date_Expiration'].isna()) &
     (df_base['Date_Publication'] != date_du_jour)
 ]
 

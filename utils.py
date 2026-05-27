@@ -1,6 +1,14 @@
 import os
 import pandas as pd
 
+mapping_metier = {
+    "Data Analyst": "Data Analyst",
+    "Analyste de données": "Data Analyst",
+    "Data Scientist": "Data Scientist",
+    "Business Analyst": "Business Analyst",
+    "Business Intelligence": "Business Analyst"
+}
+
 def sauvegarde_securisee(df, chemin_fichier):
     """
     Sauvegarde un DataFrame de manière atomique pour éviter la corruption.
@@ -79,24 +87,35 @@ def fetch_key(key_name):
     return None
 
 
-def load_data(_client, table_name="Data_Analyst", batch_size=1000):
+def load_data(_client, table_name="Data_Analyst", batch_size=1000, source_filter=None, only_active=False, date_publication_filter=None, limit=None):
     """
-    Télécharge toutes les données d'une table Supabase proprement.
-    Gère la pagination automatiquement et renvoie un DataFrame nettoyé.
-    Nécessite pandas as pd
+    Télécharge les données d'une table Supabase proprement.
+    - source_filter="Nom" : Ne télécharge que cette source.
+    - only_active=True : Filtre côté serveur pour ignorer les offres expirées.
+    - limit=100 : (Mode Test) Ne télécharge que N lignes maximum pour protéger le quota Egress.
     """
     try:
         all_rows = []
         start = 0
         
         while True:
-            response = (
-                _client
-                .table(table_name)
-                .select("*")
-                .range(start, start + batch_size - 1)
-                .execute()
-            )
+            query = _client.table(table_name).select("*")
+            if source_filter:
+                query = query.eq("Source", source_filter)                
+            if only_active:
+                # Syntax Supabase pour dire "Où la case est vide"
+                query = query.is_("Date_Expiration", "null")
+            if date_publication_filter:
+                # 🛡️ Le bouclier ultime : Supabase filtre la date avant d'envoyer
+                query = query.eq("Date_Publication", date_publication_filter)
+            if limit is not None:
+                # Mode Test : On prend juste ce qui est demandé et on s'arrête
+                response = query.limit(limit).execute()
+                all_rows.extend(response.data)
+                break 
+            else:
+                # Mode Production : Exécution paginée pour tout récupérer
+                response = query.range(start, start + batch_size - 1).execute()
             
             batch = response.data
             if not batch: # Si la réponse est vide, on a tout lu
