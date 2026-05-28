@@ -50,6 +50,7 @@ df_a_verifier = df_base[
     # (df_base['Date_Expiration'].isna()) &
     (df_base['Date_Publication'] != date_du_jour)
 ]
+df_a_verifier = df_a_verifier.sort_values(by="Date_Publication", ascending=True)
 
 print(f"🕵️ {len(df_a_verifier)} offres à vérifier dans la base de données.")
 if len(df_a_verifier) == 0:
@@ -75,6 +76,8 @@ def tuer_cookies(driver):
 
 print("\n🚀 Démarrage de la mise à jour des statuts...")
 
+heure_demarrage = time.time()
+LIMITE_TEMPS = (5 * 3600) + (30 * 60)
 compteur_morts = 0
 compteur_vivants = 0
 compteur_doutes = 0
@@ -91,6 +94,9 @@ for offre in liste_offres:
 
 try:
     for i, offre in enumerate(tqdm(liste_offres, desc="Vérification du statut des offres")):
+        if time.time() - heure_demarrage > LIMITE_TEMPS:
+            print("\n⏳ Limite de 5h30 atteinte ! Arrêt d'urgence pour sauvegarder...")
+            break
         url = offre.get('URL')
         if not url:
                 print(f"⚠️  Ligne {i} : Pas d'URL trouvée.")
@@ -105,7 +111,7 @@ try:
                 time.sleep(1)
             
             # Pause très courte (on veut juste voir si le texte charge)
-            time.sleep(random.uniform(3, 5))
+            time.sleep(random.uniform(2, 4))
             
             soup = BeautifulSoup(driver.page_source, 'html.parser')           
             
