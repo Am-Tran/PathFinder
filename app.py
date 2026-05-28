@@ -516,7 +516,10 @@ with tab_trends:
                 df_finished['Duree_Vie'] = (df_finished['Date_Expiration'] - df_finished['Date_Publication']).dt.days
                 # On filtre les durées négatives (bugs de dates) ou nulles
                 avg_duree = df_finished[df_finished['Duree_Vie'] > 0]['Duree_Vie'].mean()
-                label_duree = f"{avg_duree:.0f} jours"
+                if pd.notna(avg_duree):
+                    label_duree = f"{avg_duree:.0f} jours"
+                else:
+                    label_duree = "N/A"
             else:
                 label_duree = "N/A"
 
@@ -656,54 +659,54 @@ with tab_trends:
             
                 st.plotly_chart(fig_tech, width="stretch")
 
-                st.divider() # Séparation visuelle
+            st.divider() # Séparation visuelle
             
 # ------------------------------------------------------------------------------------------------------------------------------------------------------
 
-                # ===== GRAPHIQUE TYPES DE CONTRATS =====
-                
-                st.markdown("#### 📜 Évolution des Types de Contrats")
+            # ===== GRAPHIQUE TYPES DE CONTRATS =====
+            
+            st.markdown("#### 📜 Évolution des Types de Contrats")
 
-                # 1. Préparation des données (Pivot pour gérer les mois vides)
-                # On groupe par Mois et Contrat, puis on 'unstack' pour avoir les contrats en colonnes
-                # fill_value=0 est CRUCIAL : si un mois n'a pas de "Stage", ça met 0 au lieu de rien
-                evol_contrat = df_trends.groupby(['Semaine', 'Type_Contrat']).size().unstack(fill_value=0)
+            # 1. Préparation des données (Pivot pour gérer les mois vides)
+            # On groupe par Mois et Contrat, puis on 'unstack' pour avoir les contrats en colonnes
+            # fill_value=0 est CRUCIAL : si un mois n'a pas de "Stage", ça met 0 au lieu de rien
+            evol_contrat = df_trends.groupby(['Semaine', 'Type_Contrat']).size().unstack(fill_value=0)
 
-                # 2. Création du graphique Plotly
-                fig_contrat = px.line(
-                    evol_contrat, 
-                    markers=True, 
-                    title="Répartition des contrats dans le temps",
-                    color_discrete_sequence=settings.palette_b,
-                    height=600 # Une hauteur moyenne suffit ici
+            # 2. Création du graphique Plotly
+            fig_contrat = px.line(
+                evol_contrat, 
+                markers=True, 
+                title="Répartition des contrats dans le temps",
+                color_discrete_sequence=settings.palette_b,
+                height=600 # Une hauteur moyenne suffit ici
+            )
+
+            # 3. Application du style (Cohérent avec les autres graphs)
+            fig_contrat.update_layout(
+                font=dict(size=taille_police),
+                title=dict(font=dict(size=taille_police + 2)),
+                xaxis=dict(title="Semaine", tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
+                yaxis=dict(title="Nombre d'offres", tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
+                legend=dict(title="Type de Contrat", font=dict(size=taille_police)),
+                hovermode="x unified"
+            )
+
+            fig_contrat.add_vline(
+                x=Date_debut, 
+                line_width=2, 
+                line_dash="dash", 
+                line_color= "#2980b9"
+                )
+            fig_contrat.add_annotation(
+                x=Date_debut,
+                y=1.05, # Juste au-dessus du graphe
+                yref="paper", # Coordonnée relative (1.0 = haut du graphe)
+                text="Initialisation (Stock)",
+                showarrow=False,
+                font=dict(color="#2980b9", size=taille_police)
                 )
 
-                # 3. Application du style (Cohérent avec les autres graphs)
-                fig_contrat.update_layout(
-                    font=dict(size=taille_police),
-                    title=dict(font=dict(size=taille_police + 2)),
-                    xaxis=dict(title="Semaine", tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
-                    yaxis=dict(title="Nombre d'offres", tickfont=dict(size=taille_police), title_font=dict(size=taille_police)),
-                    legend=dict(title="Type de Contrat", font=dict(size=taille_police)),
-                    hovermode="x unified"
-                )
-
-                fig_contrat.add_vline(
-                    x=Date_debut, 
-                    line_width=2, 
-                    line_dash="dash", 
-                    line_color= "#2980b9"
-                    )
-                fig_contrat.add_annotation(
-                    x=Date_debut,
-                    y=1.05, # Juste au-dessus du graphe
-                    yref="paper", # Coordonnée relative (1.0 = haut du graphe)
-                    text="Initialisation (Stock)",
-                    showarrow=False,
-                    font=dict(color="#2980b9", size=taille_police)
-                    )
-
-                st.plotly_chart(fig_contrat, width="stretch")
+            st.plotly_chart(fig_contrat, width="stretch")
     else:
         st.info("Sélectionnez au moins une compétence pour voir l'évolution.")
             
