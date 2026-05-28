@@ -31,11 +31,15 @@ date_du_jour = pd.to_datetime(date_actuelle)
 # --- CHARGEMENT ---
 
 print("☁️ Récupération des offres actives depuis Supabase...")
-df_base = load_data(supabase, table_name=table_choisie)
+df_base = load_data(supabase, table_name=table_choisie,
+                    source_filter="Welcome to the Jungle",
+                    only_active=True,
+                    #date_publication_filter=,
+                    limit=None)
 
 df_a_verifier = df_base[
-    (df_base['Source'] == 'Welcome to the Jungle') & 
-    (df_base['Date_Expiration'].isna()) &
+    # (df_base['Source'] == 'Welcome to the Jungle') & 
+    #(df_base['Date_Expiration'].isna()) &
     (df_base['Date_Publication'] != date_du_jour)
 ]
 
