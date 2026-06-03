@@ -67,7 +67,7 @@ def load_data(_client, batch_size=1000):
             response = (
                 _client
                 .table("Data_Analyst")
-                .select("*")
+                .select("Titre, Entreprise, Ville, Source, Type_Contrat, Salaire_Annuel, Date_Publication, Date_Expiration, Niveau, Handicap_Friendly, Tech_Stack")
                 .range(start, end)
                 .execute()
             )
@@ -90,6 +90,12 @@ def load_data(_client, batch_size=1000):
             for col in ["Date_Publication", "Date_Expiration"]:
                 if col in df.columns:
                     df[col] = pd.to_datetime(df[col], errors="coerce")
+            if "Handicap_Friendly" in df.columns:
+                df["Handicap_Friendly"] = df["Handicap_Friendly"].astype(bool)
+            colonnes_categorielles = ["Source", "Type_Contrat", "Niveau", "Ville"]
+            for col in colonnes_categorielles:
+                if col in df.columns:
+                    df[col] = df[col].astype('category')
 
         return df
 
