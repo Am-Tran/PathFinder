@@ -27,24 +27,19 @@ date_du_jour = pd.to_datetime(date_actuelle)
 
 # --- 2. CHARGEMENT ---
 print("📥 Récupération des offres France Travail depuis Supabase...")
-df = load_data(supabase, table_name=table_choisie,
-                     source_filter="France Travail",
-                     only_active=True,
-                     date_publication_filter=date_actuelle.strftime('%Y-%m-%d'),
-                     limit=None)
+filtres_ft = {
+    "source": "France Travail",
+    "statut": "Collecte"
+}
+df = load_data(supabase, table_name=table_choisie, limit = None, filters=filtres_ft)
 if df.empty:
     print("✨ La base de données est vide.")
-    exit()
+    sys.exit(0)
 
-# df = response[
-#     (response['Source'] == 'France Travail') & 
-#     (response['Date_Expiration'].isna()) &
-#     (response['Date_Publication'].dt.date <= date_actuelle)
-#     ].copy()
 
 if df.empty:
     print("✨ Aucune offre France Travail trouvée dans la base.")
-    exit()
+    sys.exit(0)
 print(f"✅ Chargé : {len(df)} offres brutes.")
 
 # --- 3. FONCTIONS DE NETTOYAGE ---
@@ -184,6 +179,8 @@ else:
     # On s'assure que c'est propre (pas de "nan" string)
     df['Date_Expiration'] = df['Date_Expiration'].apply(nettoyer_date)
 
+df["Statut"] = "Prep"
+
 # --- 5. STATISTIQUES RAPIDES ---
 nb_salaires = df['Salaire_Annuel'].notna().sum()
 moyenne_salaire = df['Salaire_Annuel'].mean()
@@ -195,32 +192,31 @@ if nb_salaires > 0:
 
 # --- 6. SAUVEGARDE ---
 print("\n🚀 Envoi des données nettoyées vers Supabase...")
-df = df.astype(object).where(pd.notna(df), None)
+colonnes_supabase = [
+    "Titre", "Entreprise", "Ville", "Type_Contrat", 
+    "Salaire_Annuel", "Description", "Date_Publication", 
+    "Date_Expiration", "Source", "URL", "Statut", "Metier"
+]
+df_clean = df[colonnes_supabase].copy()
+df_clean = df_clean.astype(object).where(pd.notna(df_clean), None)
+
 erreurs = 0
-for index, row in df.iterrows():
-    # On prépare le petit paquet de données propres pour cette ligne
-    donnees_propres = {
-        "Titre": row['Titre'],
-        "Entreprise": row['Entreprise'],
-        "Ville": row['Ville'],
-        "Salaire_Annuel": row['Salaire_Annuel'],
-        "Description": row['Description'],
-        "Date_Publication": row['Date_Publication'],
-        "Date_Expiration": row['Date_Expiration']
-    }
-    
+liste_donnees = df_clean.to_dict(orient='records')
+
+for i in range(0, len(liste_donnees), 1000):
+    batch = liste_donnees[i : i + 1000]
     try:
-        # On met à jour la ligne précise grâce à son 'id'
-        supabase.table(table_choisie).update(donnees_propres).eq("URL", row['URL']).execute()
+        # Le upsert mettra à jour la ligne entière d'un seul coup grâce à la clé "URL"
+        supabase.table(table_choisie).upsert(batch, on_conflict="URL").execute()
     except Exception as e:
         erreurs += 1
         if erreurs == 1:
             print("\n🚨 --- ALERTE ROUGE : DÉTAIL DU CRASH --- 🚨")
             print(f"❌ Le message de Supabase : {e}")
-            print(f"📦 Le paquet refusé : {donnees_propres}")
-            print(f"🆔 L'ID ciblé : {row.get('URL', 'URL INTROUVABLE')}")
+            print(f"📦 Le paquet refusé : {batch[0]}")
+            print(f"🆔 L'ID ciblé : {batch[0].get('URL', 'URL INTROUVABLE')}")
             print("-------------------------------------------\n")
 
-print(f"\n✅ Nettoyage terminé ! {len(df) - erreurs} offres mises à jour.")
+print(f"\n✅ Nettoyage terminé ! {max(0, len(liste_donnees) - (erreurs*1000))} offres passées au statut 'Prep'.")
 if erreurs > 0:
     print(f"⚠️ Il y a eu {erreurs} erreurs lors de l'envoi.")

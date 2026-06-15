@@ -15,7 +15,6 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 from utils import fetch_key, load_data
 
-INPUT_CSV = os.path.join(project_root, "data", "enriched", "offres_apec_full.csv")
 print("☁️ Initialisation de Supabase...")
 supabase_url = fetch_key("SUPABASE_URL")
 supabase_key = fetch_key("SUPABASE_KEY")
@@ -24,15 +23,18 @@ supabase = create_client(supabase_url, supabase_key)
 timezone_fr = pytz.timezone('Europe/Paris')
 date_actuelle = datetime.now(timezone_fr).date()
 
-print(f"🧹 Démarrage du nettoyage APEC : {INPUT_CSV}")
-
 # --- 2. CHARGEMENT ---
-if not os.path.exists(INPUT_CSV):
-    print("❌ Fichier introuvable.")
-    exit()
+print("📥 Téléchargement des offres à nettoyer depuis le Cloud...")
 
-df = pd.read_csv(INPUT_CSV)
-print(f"✅ Chargé initialement : {len(df)} lignes.")
+filtres_nettoyage = {
+    "source": "APEC",
+    "statut": "Collecte"
+}
+
+df = load_data(supabase, table_choisie, limit=None, filters = filtres_nettoyage)
+if df.empty:
+    print("✨ Aucune offre APEC en statut 'Collecte' n'a été trouvée dans ce lot de 100.")
+    sys.exit(0)
 
 # --- 3. FONCTIONS DE NETTOYAGE ---
 
@@ -43,44 +45,49 @@ def extraire_ville_regex(row):
     Unifie toutes les variantes de Paris.
     
     """
-    tags = str(row['Details_Tags'])
-    ville_trouvee = "France"
+    tags = str(row['Description'])
+    ville_trouvee = None    
 
     # REGEX : Un mot (avec tirets/espaces) + " - " + 2 chiffres (département)   
-    match = re.search(r'(?<!\d)([A-Za-zÀ-ÿ\s-]+)\s-\s(\d{2}\b)', tags)
+    tags_line = tags.split('DESCRIPTION :')[0]
+    tags_list = tags_line.split(' | ')
     
-    if match:
-        ville = match.group(1).strip()
-        # On ignore "Salaire - 35" qui pourrait ressembler à une ville
-        if "salaire" not in ville.lower():
-            ville_trouvee = ville
+    for tag in tags_list:
+        tag = tag.replace('TAGS APEC :', '').strip()        
+        # REGEX : Un mot (lettres/tirets) suivi d'un espace OU d'un " - " puis 2 chiffres
+        match = re.search(r'^([A-Za-zÀ-ÿ\s-]+?)(?:\s-\s|\s)(\d{2})\b', tag)        
+        if match and "€" not in tag and "k" not in tag.lower():
+            ville_trouvee = match.group(1).strip()
+            break
     
     # Si regex échoue, on regarde la colonne Ville existante
-    ville_existante = str(row['Ville'])
-    if ville_existante and "Non spécifié" not in ville_existante and len(ville_existante) > 2:
-        if " - " in ville_existante:
-            ville_trouvee = ville_existante.split(' - ')[0]
-        else:
-            ville_trouvee = ville_existante
+    if ville_trouvee is None:
+        ville_existante = str(row['Ville'])
+        if ville_existante and "Non spécifié" not in ville_existante and len(ville_existante) > 2:
+            if " - " in ville_existante:
+                ville_trouvee = ville_existante.split(' - ')[0]
+            else:
+                ville_trouvee = ville_existante
 
 
-    #Unification des grandes villes (arrondissements)    
-    ville_lower = ville_trouvee.lower()
-    
-    if "paris" in ville_lower:
-        return "Paris"
-    if "lyon" in ville_lower:  # Bonus : souvent utile pour "Lyon 3ème", etc.
-        return "Lyon"
-    if "marseille" in ville_lower:
-        return "Marseille"
+    #Unification des grandes villes (arrondissements) 
+    if ville_trouvee:   
+        ville_lower = ville_trouvee.lower()
         
-    return ville_trouvee
-
+        if "paris" in ville_lower:
+            return "Paris"
+        if "lyon" in ville_lower:  # Bonus : souvent utile pour "Lyon 3ème", etc.
+            return "Lyon"
+        if "marseille" in ville_lower:
+            return "Marseille"           
+        return ville_trouvee
+    return None
 def extraire_contrat_regex(row):
     """
     Cherche CDI, CDD, etc. partout dans les tags
     """
-    tags = str(row['Details_Tags']).upper()
+    description = str(row['Description']).upper()
+    tags = description.split('DESCRIPTION :')[0].upper()
     
     # Ordre d'importance
     if "CDD" in tags: return "CDD"
@@ -90,7 +97,7 @@ def extraire_contrat_regex(row):
     if "ALTERNANCE" in tags or "PROFESSIONNALISATION" in tags: return "Alternance"
     if "CDI" in tags: return "CDI"
     
-    return "CDI" # Valeur par défaut
+    return None # Valeur par défaut
 
 def extraire_salaire_apec(texte):
     if pd.isna(texte) or "Non spécifié" in str(texte):
@@ -115,7 +122,7 @@ def est_offre_valide(row):
     Renvoie False si c'est du bruit.
     """
     titre = str(row['Titre']).lower()
-    desc = str(row['Description_Complete']).lower()
+    desc = str(row['Description']).lower()
     entreprise = str(row['Entreprise']).lower()
 
     # Liste des mots qui prouvent que c'est une page poubelle
@@ -173,25 +180,30 @@ try:
     print("⚙️ Transformation des données...")
 
     # Date
-    df_clean['Date'] = pd.to_datetime(df_clean['Date'], format='%d/%m/%Y', errors='coerce').dt.strftime('%Y-%m-%d')   
+    df_clean['Date_Publication'] = pd.to_datetime(df_clean['Date_Publication'], format='%d/%m/%Y', errors='coerce').dt.strftime('%Y-%m-%d')   
     date_str = date_actuelle.strftime('%Y-%m-%d')
-    df_clean['Date'] = df_clean['Date'].fillna(date_str)
+    df_clean['Date_Publication'] = df_clean['Date_Publication'].fillna(date_str)
 
     # Salaire
-    df_clean['Salaire_Annuel_Estime'] = df_clean['Salaire_Brut'].apply(extraire_salaire_apec)
+    df_clean['Salaire_Annuel'] = df_clean['Salaire_Annuel'].apply(extraire_salaire_apec)
 
     # Ville
-    df_clean['Ville_Clean'] = df_clean.apply(extraire_ville_regex, axis = 1)
+    df_clean['Ville'] = df_clean.apply(extraire_ville_regex, axis = 1)
 
     # Contrat
     df_clean['Type_Contrat'] = df_clean.apply(extraire_contrat_regex, axis = 1)
 
     # Nettoyage texte description
-    df_clean['Description_Propre'] = df_clean['Description_Complete'].apply(nettoyer_texte)
+    df_clean['Description'] = df_clean['Description'].apply(nettoyer_texte)
 
     # Nettoyage Titre/Entreprise
     df_clean['Titre'] = df_clean['Titre'].astype(str).str.strip()
     df_clean['Entreprise'] = df_clean['Entreprise'].astype(str).str.upper().str.strip()
+
+    # Statut
+    df_clean['Statut'] = "Prep"
+    df_clean['Source'] = 'APEC'
+    df_clean['Metier'] = "Data Analyst"
  
 except Exception as e:
     print(f"❌ Erreur critique lors de la transformation des données : {e}")
@@ -199,8 +211,8 @@ except Exception as e:
     exit()
 
 # --- 5. STATS ---
-nb_salaires = df_clean['Salaire_Annuel_Estime'].notna().sum()
-moyenne = df_clean['Salaire_Annuel_Estime'].mean() if nb_salaires > 0 else 0
+nb_salaires = df_clean['Salaire_Annuel'].notna().sum()
+moyenne = df_clean['Salaire_Annuel'].mean() if nb_salaires > 0 else 0
 
 print(f"\n📊 Résumé APEC Final :")
 print(f"   - Offres propres : {len(df_clean)}")
@@ -209,21 +221,13 @@ if nb_salaires > 0:
     print(f"   - Moyenne : {moyenne:.0f} €")
 
 # --- 6. SAUVEGARDE ---
-df_clean['Source'] = 'APEC'
 
 print("\n🚀 Préparation des données pour Supabase...")
-colonnes_doublons = ['Ville', 'Salaire_Annuel', 'Description', 'Date_Publication']
-df_clean = df_clean.drop(columns=[c for c in colonnes_doublons if c in df_clean.columns], errors='ignore')
-df_clean = df_clean.rename(columns={
-    'Ville_Clean': 'Ville',
-    'Salaire_Annuel_Estime': 'Salaire_Annuel',
-    'Description_Propre': 'Description',
-    'Date': 'Date_Publication'
-})
+
 colonnes_supabase = [
     "Titre", "Entreprise", "Ville", "Type_Contrat", 
     "Salaire_Annuel", "Description", "Date_Publication", 
-    "Source", "URL"
+    "Source", "URL", "Statut", "Metier"
 ]
 
 df_clean = df_clean[colonnes_supabase]

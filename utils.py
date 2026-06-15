@@ -87,29 +87,33 @@ def fetch_key(key_name):
     return None
 
 
-def load_data(_client, table_name="Data_Analyst", batch_size=1000, source_filter=None, only_active=False, date_publication_filter=None, limit=None):
+def load_data(_client, table_name="Data_Analyst", batch_size=1000, limit=None, filters=None):
     """
     Télécharge les données d'une table Supabase proprement.
-    - source_filter="Nom" : Ne télécharge que cette source.
-    - only_active=True : Filtre côté serveur pour ignorer les offres expirées.
-    - limit=100 : (Mode Test) Ne télécharge que N lignes maximum pour protéger le quota Egress.
+    Mettre les filtres dans un dictionnaire.
     """
+    if filters is None:
+        filters = {}
     try:
         all_rows = []
         start = 0
         
         while True:
-            query = _client.table(table_name).select("*")
-            if source_filter:
-                query = query.eq("Source", source_filter)                
-            if only_active:
-                # Syntax Supabase pour dire "Où la case est vide"
-                query = query.is_("Date_Expiration", "null")
-            if date_publication_filter:
-                # 🛡️ Le bouclier ultime : Supabase filtre la date avant d'envoyer
-                query = query.eq("Date_Publication", date_publication_filter)
+            if filters.get("column"):
+                query = _client.table(table_name).select(filters["column"])
+            else:
+                query = _client.table(table_name).select("*")
+            if filters.get("source"):
+                query = query.eq("Source", filters["source"])                
+            if filters.get("only_active"):                
+                query = query.is_("Date_Expiration", "null")            
+            if filters.get("statut"):
+                query = query.eq("Statut", filters["statut"])
+            if filters.get("date_pub"):
+                query = query.eq("Date_Publication", filters["date_pub"])
             if limit is not None:
                 # Mode Test : On prend juste ce qui est demandé et on s'arrête
+                query = query.order("Date_Publication", desc=True)
                 response = query.limit(limit).execute()
                 all_rows.extend(response.data)
                 break 
@@ -150,6 +154,22 @@ def load_data(_client, table_name="Data_Analyst", batch_size=1000, source_filter
         print(f"❌ Erreur critique lors du chargement Supabase : {e}")
         return pd.DataFrame() # Retourne un DataFrame vide pour éviter le crash du script parent
 
+def upsert_data(_client, table_choisie, liste_donnees):
+    """Envoie la mémoire tampon vers Supabase d'un seul coup."""
+    if not liste_donnees:
+        print("⚠️ Aucune donnée en mémoire à sauvegarder.")
+        return
+        
+    print(f"\n🚀 Envoi de {len(liste_donnees)} offres vers Supabase...")
+    try:
+        # On envoie par paquets de 1000 pour respecter les limites du réseau
+        for i in range(0, len(liste_donnees), 1000):
+            batch = liste_donnees[i : i + 1000]
+            _client.table(table_choisie).upsert(batch, on_conflict="URL").execute()
+            
+        print("✅ SUCCÈS CLOUD : Offres sauvegardées avec le statut 'Collecte'.")
+    except Exception as e:
+        print(f"❌ Erreur lors de l'envoi à Supabase : {e}")
 
 
     

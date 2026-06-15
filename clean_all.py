@@ -279,42 +279,42 @@ cols_globales = [
 # --- RECUPERATION SUPABASE ---
 
 print("📥 Récupération des offres depuis Supabase...")
-response = load_data(supabase, table_name=table_choisie,
-                     source_filter=None,
-                     only_active=True,
-                     date_publication_filter=date_actuelle.strftime('%Y-%m-%d'),
-                     limit=None)
-if response.empty:
-    print("✨ La base de données est vide.")    
+filtres_clean = {
+    "statut": "Prep"
+}
+df_final = load_data(supabase, table_name=table_choisie, limit = None, filters=filtres_clean)
+if df_final.empty:
+    print("✨ La base de données est vide.")
+    sys.exit(0)    
 else:
     # 🛠️ CORRECTION DATE : On s'assure que c'est un format date reconnu par Pandas
-    response['Date_Publication'] = pd.to_datetime(response['Date_Publication'], errors='coerce')
+    df_final['Date_Publication'] = pd.to_datetime(df_final['Date_Publication'], errors='coerce')
 
-    df_ft = response[
-        (response['Source'] == 'France Travail') & 
-        (response['Date_Expiration'].isna()) &
-        (response['Date_Publication'].dt.date <= date_actuelle)
-        ].copy()
+    # df_ft = response[
+    #     (response['Source'] == 'France Travail') & 
+    #     (response['Date_Expiration'].isna()) &
+    #     (response['Date_Publication'].dt.date <= date_actuelle)
+    #     ].copy()
     
-    df_apec = response[
-        (response['Source'] == 'APEC') & 
-        (response['Date_Expiration'].isna()) &
-        (response['Date_Publication'].dt.date <= date_actuelle)
-        ].copy()
+    # df_apec = response[
+    #     (response['Source'] == 'APEC') & 
+    #     (response['Date_Expiration'].isna()) &
+    #     (response['Date_Publication'].dt.date <= date_actuelle)
+    #     ].copy()
     
-    df_wttj = response[
-        (response['Source'] == 'Welcome to the Jungle') & 
-        (response['Date_Expiration'].isna()) &
-        (response['Date_Publication'].dt.date <= date_actuelle)
-        ].copy()
+    # df_wttj = response[
+    #     (response['Source'] == 'Welcome to the Jungle') & 
+    #     (response['Date_Expiration'].isna()) &
+    #     (response['Date_Publication'].dt.date <= date_actuelle)
+    #     ].copy()
     
     
-    for df_temp, nom in [(df_ft, "France Travail"), (df_apec, "APEC"), (df_wttj, "Welcome to the Jungle")]:
-        if not df_temp.empty:
-            print(f"✅ Chargé : {len(df_temp)} offres {nom}.")            
-            for c in cols_globales:
-                if c not in df_temp.columns: df_temp[c] = None
-            dataframes.append(df_temp[cols_globales])   
+    # for df_temp, nom in [(df_ft, "France Travail"), (df_apec, "APEC"), (df_wttj, "Welcome to the Jungle")]:
+    #     if not df_temp.empty:
+    #         print(f"✅ Chargé : {len(df_temp)} offres {nom}.")            
+    #         for c in cols_globales:
+    #             if c not in df_temp.columns: df_temp[c] = None
+    #         dataframes.append(df_temp[cols_globales])   
 
 # endregion
 
@@ -322,12 +322,12 @@ else:
 
 # region 4. --- FUSION ---
 
-if not dataframes:
-    print("❌ Aucun fichier chargé. Arrêt.")
-    exit()
+# if not dataframes:
+#     print("❌ Aucun fichier chargé. Arrêt.")
+#     exit()
 
-print("🌪️  Mélange des données...")
-df_final = pd.concat(dataframes, ignore_index=True)
+# print("🌪️  Mélange des données...")
+# df_final = pd.concat(dataframes, ignore_index=True)
 
 # === CORRECTION DE L'ANCIENNETÉ (FIX DURÉE DE VIE) ===
 
@@ -428,56 +428,26 @@ df_final['Tech_Stack'] = df_final['Description'].apply(detecter_stack)
 
 df_final['Handicap_Friendly'] = df_final['Description'].apply(detecter_rqth)
 
+df_final['Statut'] = "Actif"
+
 # endregion
 # ======================================================================================================================================================
 
-# region 5. --- SAUVEGARDE LOCALE ---
-# df_final.to_csv(OUTPUT_CSV,
-#                 index=False,
-#                 quoting=csv.QUOTE_ALL,
-#                 escapechar='\\',
-#                 encoding='utf-8-sig'
-#                 )
-
-# print(f"\n✅ TERMINÉ ! Le fichier global est prêt :")
-# print(f"👉 {OUTPUT_CSV}")
-# print("\n📊 STATISTIQUES FINALES :")
-# print(df_final["Source"].value_counts())
-# print(f"\n💰 Offres avec salaire : {df_final['Salaire_Annuel'].notna().sum()}")
-
-# endregion
-
-# region 6. --- ENVOI SUPABASE ---
-
-
+# region 5. --- UPLOAD ---
 
 def upload_to_supabase(df):    
     # Conversion en dictionnaire
     df_copy = df.copy()
     # On uniformise les dates en format datetime Pandas
+    print(f"📤 Préparation de l'envoi de {len(df)} offres vers Supabase...")
     for col in ["Date_Publication", "Date_Expiration"]:
         if col in df_copy.columns:
-            df_copy[col] = pd.to_datetime(df_copy[col], errors='coerce')
+            df_copy[col] = pd.to_datetime(df_copy[col], errors='coerce').dt.strftime('%Y-%m-%d')
 
     # 2. Conversion en dictionnaire
+    df_copy = df_copy.astype(object).where(pd.notna(df_copy), None)
     data = df_copy.to_dict(orient='records')
 
-    # 3. Nettoyage et Conversion en String pour le JSON
-    for offre in data:
-        for key, value in offre.items():
-            # A. Si c'est une date (Timestamp ou NaT)
-            if isinstance(value, pd.Timestamp):
-                if pd.isna(value): 
-                    offre[key] = None  # NaT devient null
-                else:
-                    offre[key] = value.strftime('%Y-%m-%d') # Timestamp devient "YYYY-MM-DD"
-            
-            # B. Si c'est un NaN classique ou autre vide
-            elif pd.isna(value) or str(value).lower() in ["nan", "none", ""]:
-                offre[key] = None
-    # 3. Envoi massif (Upsert)
-    # On utilise 'on_conflict' pour dire à Supabase : 
-    # "Si tu vois la même URL, mets à jour la ligne au lieu d'en créer une nouvelle"
     batch_size = 1000
     
     print("Répartition avant envoi :")
@@ -489,8 +459,7 @@ def upload_to_supabase(df):
         batch = data[i : i+batch_size]
         try:            
             supabase.table(table_choisie).upsert(batch, on_conflict="URL").execute()
-            print(f"✅ Paquet {i//batch_size + 1} envoyé ({len(batch)} lignes)")
-            print("✅ Données synchronisées avec succès !")
+            print(f"✅ Paquet {i//batch_size + 1} envoyé ({len(batch)} lignes)")            
         except Exception as e:
             print(f"❌ Erreur lors de l'envoi {i//batch_size + 1} à Supabase: {e}")
             erreurs += 1        

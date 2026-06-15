@@ -187,11 +187,12 @@ def main():
     # --- CHARGEMENT ---
 
     print("☁️ Récupération des offres actives depuis Supabase...")
-    df = load_data(supabase, table_name=table_choisie,
-                        source_filter="Welcome to the Jungle",
-                        only_active=True,
-                        date_publication_filter=date_actuelle.strftime('%Y-%m-%d'),
-                        limit=None)
+    filters_wttj_clean= {
+    "source": "Welcome to the Jungle",
+    "statut": "Collecte",
+    "only_active": True
+    }
+    df = load_data(supabase, table_name=table_choisie, limit=None, filters = filters_wttj_clean)    
 
     # df = df_base[
     #     (df_base['Source'] == 'Welcome to the Jungle') & 
@@ -241,18 +242,19 @@ def main():
     else:
         df['Niveau'] = df['Niveau'].fillna('Non spécifié')
     df['Niveau'] = df.apply(deduire_niveau, axis=1)
+    df['Statut'] = "Prep"
 
     print("\n🚀 Préparation des données pour Supabase...")   
     colonnes_supabase = [
         "Titre", "Entreprise", "Ville", "Type_Contrat", 
         "Salaire_Annuel", "Description", "Date_Publication", 
-        "Date_Expiration", "Source", "URL", "Niveau"
+        "Date_Expiration", "Source", "URL", "Niveau", "Statut"
     ]
 
     df_clean = df[colonnes_supabase].copy()
     for col in ["Date_Publication", "Date_Expiration"]:
         if col in df_clean.columns:            
-            df_clean[col] = df_clean[col].dt.strftime('%Y-%m-%d')
+            df_clean[col] = pd.to_datetime(df_clean[col], errors='coerce').dt.strftime('%Y-%m-%d')
     df_clean = df_clean.astype(object).where(pd.notna(df_clean), None)
     
     print("\n🚀 Envoi des données nettoyées vers Supabase...")

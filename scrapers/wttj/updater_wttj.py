@@ -31,16 +31,17 @@ date_du_jour = pd.to_datetime(date_actuelle)
 # --- CHARGEMENT ---
 
 print("☁️ Récupération des offres actives depuis Supabase...")
-df_base = load_data(supabase, table_name=table_choisie,
-                    source_filter="Welcome to the Jungle",
-                    only_active=True,
-                    #date_publication_filter=,
-                    limit=None)
+filters_wttj_update= {
+    "source": "Welcome to the Jungle",
+    "statut": "Actif",
+    "only_active": True
+    }
+df_base = load_data(supabase, table_name=table_choisie, limit=None, filters = filters_wttj_update)   
 
 df_a_verifier = df_base[
     # (df_base['Source'] == 'Welcome to the Jungle') & 
     #(df_base['Date_Expiration'].isna()) &
-    (df_base['Date_Publication'] != date_du_jour)
+    (df_base['Date_Publication'].dt.date != date_actuelle)
 ]
 
 print(f"🕵️ {len(df_a_verifier)} offres à vérifier dans la base de données.")
@@ -70,13 +71,13 @@ modifications = False
 offres_a_mettre_a_jour = []
 liste_offres = df_a_verifier.to_dict(orient='records')
 
-for offre in liste_offres:
-    for cle, valeur in offre.items():
-        if pd.isna(valeur):
-            offre[cle] = None
-        elif isinstance(valeur, pd.Timestamp):
-            # On convertit le Timestamp en texte "AAAA-MM-JJ"
-            offre[cle] = valeur.strftime("%Y-%m-%d")
+# for offre in liste_offres:
+#     for cle, valeur in offre.items():
+#         if pd.isna(valeur):
+#             offre[cle] = None
+#         elif isinstance(valeur, pd.Timestamp):
+#             # On convertit le Timestamp en texte "AAAA-MM-JJ"
+#             offre[cle] = valeur.strftime("%Y-%m-%d")
 
 try:
     for i, offre in enumerate(tqdm(liste_offres, desc="Vérification du statut des offres")):
@@ -123,9 +124,11 @@ try:
 
             # --- ACTION ---
             if est_morte:
-                date_jour = datetime.now().strftime("%Y-%m-%d")
-                offre['Date_Expiration'] = date_jour
-                offres_a_mettre_a_jour.append(offre)
+                offres_a_mettre_a_jour.append({
+                    "URL": url_cible,
+                    "Date_Expiration": date_actuelle.strftime("%Y-%m-%d"),
+                    "Statut": "Archivé"
+                })
                 print(f" ❌ EXPIRÉE ({raison})")
                 compteur_morts += 1
                 modifications = True             

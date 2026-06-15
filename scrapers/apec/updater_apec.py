@@ -36,11 +36,11 @@ date_du_jour = pd.to_datetime(date_actuelle)
 
 table_choisie = "Data_Analyst"
 print("☁️ Récupération des offres actives depuis Supabase...")
-df_base = load_data(supabase, table_name=table_choisie,
-                    source_filter="APEC",
-                    only_active=True,
-                    
-                    limit=None)
+filters_apec_update= {
+    "source": "APEC",
+    "statut": "Actif"
+    }
+df_base = load_data(supabase, table_name=table_choisie, limit=None, filters = filters_apec_update)
 if df_base.empty:
         print("✅ Aucun ancien stock à vérifier.")
         exit()
@@ -48,7 +48,7 @@ if df_base.empty:
 df_a_verifier = df_base[
     # (df_base['Source'] == 'APEC') & 
     # (df_base['Date_Expiration'].isna()) &
-    (df_base['Date_Publication'] != date_du_jour)
+    (df_base['Date_Publication'].dt.date != date_actuelle)
 ]
 df_a_verifier = df_a_verifier.sort_values(by="Date_Publication", ascending=True)
 
@@ -58,7 +58,7 @@ if len(df_a_verifier) == 0:
     exit()
 
 # Ordre des colonnes pour la réécriture propre
-ordre_colonnes = ["Titre", "Entreprise", "Ville", "Salaire_Brut", "Details_Tags", "Description_Complete", "URL", "Date", "Date_Expiration"]
+ordre_colonnes = ["Titre", "Entreprise", "Ville", "Salaire_Brut", "Details_Tags", "Description_Complete", "URL", "Date_Publication", "Date_Expiration", "Statut"]
 
 
 # --- ROBOT ---
@@ -84,13 +84,13 @@ compteur_doutes = 0
 modifications = False
 offres_a_mettre_a_jour = []
 liste_offres = df_a_verifier.to_dict(orient='records')
-for offre in liste_offres:
-    for cle, valeur in offre.items():
-        if pd.isna(valeur):
-            offre[cle] = None
-        elif isinstance(valeur, pd.Timestamp):
-            # On convertit le Timestamp en texte "AAAA-MM-JJ"
-            offre[cle] = valeur.strftime("%Y-%m-%d")
+# for offre in liste_offres:
+#     for cle, valeur in offre.items():
+#         if pd.isna(valeur):
+#             offre[cle] = None
+#         elif isinstance(valeur, pd.Timestamp):
+#             # On convertit le Timestamp en texte "AAAA-MM-JJ"
+#             offre[cle] = valeur.strftime("%Y-%m-%d")
 
 try:
     for i, offre in enumerate(tqdm(liste_offres, desc="Vérification du statut des offres")):
@@ -122,9 +122,11 @@ try:
 
             # --- DÉCISION ---
             if balise_morte:
-                date_jour = datetime.now().strftime("%Y-%m-%d") 
-                offre['Date_Expiration'] = date_jour
-                offres_a_mettre_a_jour.append(offre) 
+                offres_a_mettre_a_jour.append({
+                    "URL": url, 
+                    "Date_Expiration": datetime.now().strftime("%Y-%m-%d"),
+                    "Statut": "Archivé"
+                })
                 
                 print(f" ❌ EXPIRÉE (Balise 'archived' détectée)")
                 compteur_morts += 1

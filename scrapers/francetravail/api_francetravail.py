@@ -14,7 +14,7 @@ root_dir = os.path.dirname(os.path.dirname(current_dir))
 
 if root_dir not in sys.path:
     sys.path.append(root_dir)
-from utils import fetch_key, mapping_metier
+from utils import fetch_key, mapping_metier, load_data
 
 CLIENT_ID = fetch_key("FT_CLIENT_ID")
 CLIENT_SECRET = fetch_key("FT_CLIENT_SECRET")
@@ -47,6 +47,25 @@ if resp_auth.status_code != 200:
 token = resp_auth.json()['access_token']
 print("✅ Token valide.")
 
+# --- 2.5 CHARGEMENT DE L'HISTORIQUE ---
+print("🔄 Chargement de l'historique depuis Supabase...")
+
+try:
+    filtres_ft = {
+    "source": "France Travail",
+    "statut": "Actif",
+    "column": "URL"
+}
+    df_historique = load_data(supabase, table_name=table_choisie, limit = None, filters=filtres_ft)
+    if not df_historique.empty:
+        existing_urls = set(df_historique['URL'].tolist())
+        print(f"🧠 {len(existing_urls)} offres FT déjà connues en base.")
+    else:
+        existing_urls = set()
+except Exception as e:
+    print(f"⚠️ Impossible de charger l'historique : {e}")
+    existing_urls = set()
+
 
 # --- 3. LA BOUCLE DE RÉCUPÉRATION ---
 url_search = "https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search"
@@ -56,16 +75,9 @@ headers_search = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
-# mapping_metier = {
-#     "Data Analyst": "Data Analyst",
-#     "Analyste de données": "Data Analyst",
-#     "Data Scientist": "Data Scientist",
-#     "Business Analyst": "Business Analyst",
-#     "Business Intelligence": "Business Analyst"
-# }
+
 all_offres_data = [] # On va stocker toutes les offres ici
 existing_ids = set()
-ids_recuperes = set() #Enlever les doublons
 
 
 for mot in mapping_metier.keys():
@@ -101,10 +113,10 @@ for mot in mapping_metier.keys():
             # Nettoyage et Ajout à la liste principale
             for offre in resultats:
                 # DÉDOUBLONNAGE : On vérifie l'ID de l'offre
-                offer_id = offre.get('id')
-                if offer_id in existing_ids or offer_id in ids_recuperes:
+                id_offre = offre.get('id')
+                url_offre = offre.get('origineOffre', {}).get('urlOrigine') or f"{url_offre_id}{id_offre}"
+                if url_offre in existing_urls or id_offre in existing_ids:
                     continue
-                url_offre = offre.get('origineOffre', {}).get('urlOrigine') or f"{url_offre_id}{offer_id}"
                 info = {
                 "Titre": offre.get('intitule'),
                 "Entreprise": offre.get('entreprise', {}).get('nom', 'Confidentiel'),
@@ -115,10 +127,12 @@ for mot in mapping_metier.keys():
                 "Source": "France Travail",
                 "URL": url_offre,
                 "Description": offre.get('description'),
-                "Metier": mapping_metier[mot]
+                "Metier": mapping_metier[mot],
+                "Statut" : "Collecte"
                 }
                 all_offres_data.append(info)
-                ids_recuperes.add(offer_id)
+                existing_ids.add(id_offre)
+                existing_urls.add(url_offre)
                 count_new += 1
 
             print(f"   ✅ {len(resultats)} reçues dont {count_new} nouvelles.")

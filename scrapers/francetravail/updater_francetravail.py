@@ -57,20 +57,15 @@ date_du_jour = pd.to_datetime(date_actuelle)
 
 table_choisie = "Data_Analyst"
 print("☁️ Récupération des offres actives depuis Supabase...")
-df_base = load_data(supabase, table_name=table_choisie,
-                    source_filter="France Travail",
-                    only_active=True,
-                    
-                    limit=None)
+filtres_ft_update = {
+    "source": "France Travail",
+    "statut": "Actif"
+}
+df_base = load_data(supabase, table_name=table_choisie, limit = None, filters=filtres_ft_update)
+df_base = df_base[df_base['Date_Publication'].dt.date != date_actuelle]
 
-df_a_verifier = df_base[
-    # (df_base['Source'] == 'France Travail') & 
-    # (df_base['Date_Expiration'].isna()) &
-    (df_base['Date_Publication'] != date_du_jour)
-]
-
-print(f"🕵️ {len(df_a_verifier)} offres à vérifier dans la base de données.")
-if len(df_a_verifier) == 0:
+print(f"🕵️ {len(df_base)} offres à vérifier dans la base de données.")
+if len(df_base) == 0:
     print(" ⚠️ Il n'y a aucune offre active de FranceTravail.")
     exit()
 # ------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -134,7 +129,7 @@ compteur_vivants = 0
 
 api_base_url = "https://api.francetravail.io/partenaire/offresdemploi/v2/offres/"
 offres_a_mettre_a_jour = []
-liste_offres = df_a_verifier.to_dict(orient='records')
+liste_offres = df_base.to_dict(orient='records')
 
 for i, offre in enumerate(liste_offres):
     try:
@@ -194,7 +189,8 @@ for i, offre in enumerate(liste_offres):
                 compteur_morts += 1
                 offres_a_mettre_a_jour.append({
                     "URL": url, # La clé pour que Supabase sache quelle ligne modifier
-                    "Date_Expiration": datetime.now().strftime("%Y-%m-%d") # Format ISO standard
+                    "Date_Expiration": datetime.now().strftime("%Y-%m-%d"), # Format ISO standard
+                    "Statut": "Archive"
                 })   
 
         # Petite pause pour être gentil avec l'API (10 offres par seconde max)

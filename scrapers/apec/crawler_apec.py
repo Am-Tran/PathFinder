@@ -25,7 +25,7 @@ supabase_url = fetch_key("SUPABASE_URL")
 supabase_key = fetch_key("SUPABASE_KEY")
 supabase = create_client(supabase_url, supabase_key)
 
-table_choisie = "Data_Analyst_test"
+table_choisie = "Data_Analyst"
 
 if project_root not in sys.path:
     sys.path.append(project_root)
@@ -221,9 +221,8 @@ finally:
         for url in urls_trouvees_ce_jour:
             donnees_a_inserer.append({
                 "URL": url,
-                "Source": "APEC"
-                
-                #"Statut": "A_SCRAPER" # Un petit tag utile pour ton scraper
+                "Source": "APEC",                
+                "Statut": "Cible"
             })    
         try:
             for i in range(0, len(donnees_a_inserer), 1000):

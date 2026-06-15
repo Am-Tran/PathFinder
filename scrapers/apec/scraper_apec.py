@@ -9,45 +9,38 @@ from bs4 import BeautifulSoup
 import time
 import random
 import os
+import sys
 from datetime import datetime
 from tqdm import tqdm
+from supabase import create_client
 
 # --- 0. CONFIGURATION ---
+table_choisie = "Data_Analyst"
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
 
-INPUT_CSV = os.path.join(project_root, "data", "raw", "offres_apec_url.csv")
-OUTPUT_CSV = os.path.join(project_root, "data", "enriched", "offres_apec_full.csv")
+if project_root not in sys.path:
+    sys.path.append(project_root)
+from utils import fetch_key, upsert_data
 
-ordre_colonnes = ["Titre", "Entreprise", "Ville", "Salaire_Brut", "Details_Tags", "Description_Complete", "URL", "Date", "Date_Expiration"]
+INPUT_CSV = os.path.join(project_root, "data", "raw", "offres_apec_url.csv")
+
+ordre_colonnes = ["Titre", "Entreprise", "Ville", "Salaire_Brut", "Details_Tags", "Description_Complete", "URL", "Date", "Date_Expiration", "Source", "Statut"]
 
 if not os.path.exists(INPUT_CSV):
     print(f"❌ ERREUR : {INPUT_CSV} introuvable.")
     exit()
 
-df_source = pd.read_csv(INPUT_CSV, encoding='utf-8', header=None, names=['URL'])
+df_source = pd.read_csv(INPUT_CSV, encoding='utf-8', header=None, names=['URL'], nrows=100)
 print(f"✅ Chargement de {len(df_source)} offres APEC.")
 
+supabase_url = fetch_key("SUPABASE_URL")
+supabase_key = fetch_key("SUPABASE_KEY")
+supabase = create_client(supabase_url, supabase_key)
+
 # Reprise automatique
-deja_faites = []
-if os.path.exists(OUTPUT_CSV):
-    try:
-        df_exist = pd.read_csv(OUTPUT_CSV, encoding='utf-8-sig')
-        if "Date_Expiration" not in df_exist.columns:
-            print("⚠️ Mise à jour du fichier historique : Ajout de la colonne 'Date_Expiration'...")
-            df_exist["Date_Expiration"] = "" 
-            df_exist = df_exist.reindex(columns=ordre_colonnes)
-            df_exist.to_csv(OUTPUT_CSV, index=False, encoding='utf-8-sig')
-        if "URL" in df_exist.columns:
-            deja_faites = df_exist["URL"].tolist()
-            print(f"🔄 Reprise : {len(deja_faites)} offres déjà faites.")
-    except:
-        print("⚠️ Fichier de sortie existant mais illisible ou vide.")
-        pass
-else:
-    # Création du fichier vide
-    os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)    
-    pd.DataFrame(columns=ordre_colonnes).to_csv(OUTPUT_CSV, index=False, encoding='utf-8-sig')
+
 
 # --- 1. LE ROBOT ---
 options = webdriver.ChromeOptions()
@@ -107,15 +100,19 @@ def extraire_date(soup):
         if date_element:
             raw_date = date_element.get_text().strip()
             # Nettoyage : Transforme "Publiée le 23/01/2026" en "23/01/2026"
-            date_clean = raw_date.replace("Publiée le", "").replace("Actualisée le", "").strip()
+            date_brute = raw_date.replace("Publiée le", "").replace("Actualisée le", "").strip()
+            date_clean = datetime.strptime(date_brute, "%d/%m/%Y").strftime("%Y-%m-%d")
         else:
-            date_clean = datetime.now().strftime("%d/%m/%Y")
+            date_clean = datetime.now().strftime("%Y-%m-%d")
     except:
-        date_clean = time.strftime("%d/%m/%Y") # Fallback : Date d'aujourd'hui
+        date_clean = time.strftime("%Y-%m-%d") # Fallback : Date d'aujourd'hui
     return date_clean
 
 # --- 2. LA BOUCLE ---
 try:
+    offres_en_memoire = []
+    deja_faites = []
+
     for index, row in tqdm(df_source.iterrows(), desc="Scraping APEC"):
         url = row['URL']
         titre_csv = 'Inconnu'
@@ -126,7 +123,7 @@ try:
         print(f"\n🔎 ({index + 1}/{len(df_source)}) {titre_csv}")
         # Init variables pour cette offre
         date_expiration = "" # Vide par défaut
-        date_clean = datetime.now().strftime("%d/%m/%Y")
+        date_clean = datetime.now().strftime("%Y-%m-%d")
         titre_reel = "Inconnu"
         description = ""
         try:
@@ -190,39 +187,39 @@ try:
                 tags.append(txt)
                 
             details_concat = " | ".join(tags)
+            description_totale = f"TAGS APEC : {details_concat}\n\nDESCRIPTION :\n{description}"
+            deja_faites.append(url)
 
             # --- SAUVEGARDE ---      
             nouvelle_ligne = {
                 "Titre": titre_reel,
-                "Entreprise": "Apec",
+                "Entreprise": None,
                 "Ville": ville,
-                "Salaire_Brut": salaire_brut,
-                "Details_Tags": details_concat,
-                "Description_Complete": description,
+                "Salaire_Annuel": salaire_brut,                
+                "Description": description_totale,
+                "Source" : "APEC",
                 "URL": url,
-                "Date" : date_clean,
-                "Date_Expiration" : None
+                "Date_Publication" : date_clean,
+                "Date_Expiration" : None,
+                "Statut" : "Collecte"
+
             }
                         
-            df_new = pd.DataFrame([nouvelle_ligne], columns=ordre_colonnes)
-            df_new.to_csv(OUTPUT_CSV, mode='a', header=False, index=False, encoding='utf-8-sig')
-            
-            status_msg = "✅ Sauvegardé (Active)" if not date_expiration else "Sauvegardé (Expirée)"
-            print(f"{status_msg}")
+            offres_en_memoire.append(nouvelle_ligne)     
 
         except Exception as e:
             print(f"❌ Erreur : {e}")
 except KeyboardInterrupt:
     print("\n🛑 INTERRUPTED ! Sauvegarde d'urgence...")
-    # Déjà sauvé ligne par ligne (mode='a')
+    upsert_data(supabase, table_choisie, offres_en_memoire)
     driver.quit()
-    print("💾 Les offres déjà traitées sont en sécurité dans le CSV.")
     exit(0)
 except Exception as e:
     print(f"❌ Erreur : {e}")
-    # On peut aussi sauver ici si on veut
+    upsert_data(supabase, table_choisie, offres_en_memoire)
     driver.quit()
+    exit(1)
 
+upsert_data(supabase, table_choisie, offres_en_memoire)
 driver.quit()
-print("\n🏁 Terminé ! Vérifiez data/enriched/offres_apec_full.csv")
-print("Fin de scraper_apec ==> Lancer updater_apec")
+print("Fin de scraper_apec ==> Lancer clean_apec")

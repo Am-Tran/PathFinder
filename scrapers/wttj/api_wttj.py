@@ -109,7 +109,8 @@ def _hit_to_raw(hit: dict) -> dict | None:
         "Type_Contrat": standardiser_contrat(contract),
         "Date_Publication": hit.get("published_at"),
         "Description": description_longue,
-        "Metier" : metier_propre
+        "Metier" : metier_propre,
+        "Statut" : "Collecte"
     }
 
 def fetch_list(*, keywords: list[str], max_pages: int = 5, urls_existantes: set = None) -> list[dict]:
@@ -118,7 +119,7 @@ def fetch_list(*, keywords: list[str], max_pages: int = 5, urls_existantes: set 
         Filtre client : mots-clés IA/data (au cas où Algolia laisse passer du bruit).
         """
         results = []
-        seen_urls = set()
+        seen_urls = set(urls_existantes) if urls_existantes else set()
 
         with httpx.Client(headers=ALGOLIA_HEADERS, timeout=20.0, http2=True) as client:
             for kw in keywords:
@@ -251,18 +252,15 @@ def main():
     supabase = create_client(supabase_url, supabase_key)
 
     print("📥 Récupération du stock actuel pour éviter les doublons...")
-    df_base = load_data(supabase, table_name=table_choisie, 
-        source_filter="Welcome to the Jungle", 
-        only_active=True,
-        #date_publication_filter=date_actuelle.strftime('%Y-%m-%d'),
-        limit=None)
-    
+    filters_wttj= {
+    "source": "Welcome to the Jungle",
+    "statut": "Actif",
+    "column": "URL"
+    }
+    df_base = load_data(supabase, table_name=table_choisie, limit=None, filters = filters_wttj)
     urls_connues = set()
     if not df_base.empty:
-        # On ne garde que les URL des offres WTTJ actives
-        mask_actives = (df_base['Source'] == 'Welcome to the Jungle') & (df_base['Date_Expiration'].isna())
-        urls_connues = set(df_base.loc[mask_actives, 'URL'].dropna())
-    
+        urls_connues = set(df_base['URL'].dropna())
     print(f"🛡️ {len(urls_connues)} offres WTTJ déjà en base. Elles seront ignorées.")
     print("🚀 Lancement du Scraper WTTJ...")    
     
@@ -276,9 +274,9 @@ def main():
     
     # Injection dans Supabase
     if offres_a_inserer:
-        print("\n🔍 PREUVE PYTHON : Voici ce qu'on envoie à Supabase :")
-        print(offres_a_inserer[0])
-        print("\n")
+        # print("\n🔍 PREUVE PYTHON : Voici ce qu'on envoie à Supabase :")
+        # print(offres_a_inserer[0])
+        # print("\n")
         try:
             for i in range(0, len(offres_a_inserer), 1000):
                 batch = offres_a_inserer[i:i+1000]
