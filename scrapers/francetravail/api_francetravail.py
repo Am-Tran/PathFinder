@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from supabase import create_client
 
 # --- 1. CONFIGURATION (Remplis tes infos) ---
-table_choisie = "Data_Analyst"
+table_choisie = "Data_Analyst_test"
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(os.path.dirname(current_dir))

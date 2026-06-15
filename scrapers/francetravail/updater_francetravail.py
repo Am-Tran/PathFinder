@@ -13,6 +13,7 @@ from supabase import create_client
 
 # --- CONFIGURATION ---
 
+table_choisie = "Data_Analyst_test"
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
 if project_root not in sys.path:
@@ -55,7 +56,6 @@ date_du_jour = pd.to_datetime(date_actuelle)
 
 # --- CHARGEMENT ---
 
-table_choisie = "Data_Analyst"
 print("☁️ Récupération des offres actives depuis Supabase...")
 filtres_ft_update = {
     "source": "France Travail",

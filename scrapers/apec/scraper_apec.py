@@ -15,7 +15,7 @@ from tqdm import tqdm
 from supabase import create_client
 
 # --- 0. CONFIGURATION ---
-table_choisie = "Data_Analyst"
+table_choisie = "Data_Analyst_test"
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))

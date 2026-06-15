@@ -25,7 +25,7 @@ supabase_url = fetch_key("SUPABASE_URL")
 supabase_key = fetch_key("SUPABASE_KEY")
 supabase = create_client(supabase_url, supabase_key)
 
-table_choisie = "Data_Analyst"
+table_choisie = "Data_Analyst_test"
 
 if project_root not in sys.path:
     sys.path.append(project_root)

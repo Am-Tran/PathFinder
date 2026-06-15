@@ -10,7 +10,8 @@ import pytz
 # ------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # region 1. --- CONFIGURATION ---
-table_choisie = "Data_Analyst"
+
+table_choisie = "Data_Analyst_test"
 
 # On se place dynamiquement
 current_dir = os.path.dirname(os.path.abspath(__file__))

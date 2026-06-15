@@ -47,7 +47,7 @@ if not SUPA_URL or not SUPA_KEY:
     st.stop()
 
 
-@st.cache_resource(ttl=43200)
+@st.cache_resource(ttl=86400) # 60 * 60 * 24
 def get_supabase_client(url, key):   
     # 3. Le crash-test bavard
     if not url or not key:
