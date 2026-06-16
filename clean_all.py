@@ -351,12 +351,13 @@ df_final['Ville'] = df_final['Ville'].str.replace(r'(?i)^marseille.*', 'Marseill
 
 print("✨ Nettoyage des guillemets résiduels...")
 cols_text = ['Titre', 'Entreprise', 'Ville']
+mots_poubelles = ['nan', 'None', 'Non spécifié', 'Confidentiel', '', 'Inconnu']
 for col in cols_text:
     # On force en string, on remplace les " et on enlève les espaces vides
     df_final[col] = df_final[col].astype(str).str.replace('"', '', regex=False).str.strip()
     
     # On enlève les "nan" qui apparaissent parfois lors de la conversion string
-    df_final[col] = df_final[col].replace('nan', 'Non spécifié')
+    df_final[col] = df_final[col].replace(mots_poubelles, None)
 
 # Suppression des doublons (basé sur l'URL)
 len_avant = len(df_final)

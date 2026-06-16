@@ -166,9 +166,8 @@ try:
             
             # --- B. TAGS (Salaire / Ville) ---
             tags = []
-            salaire_brut = "Non spécifié"
-            ville = "Non spécifié"
-            entreprise = "Confidentiel"
+            salaire_brut = None
+            ville = None
             
             lis = soup.find_all('li')
             for li in lis:

@@ -119,7 +119,7 @@ for mot in mapping_metier.keys():
                     continue
                 info = {
                 "Titre": offre.get('intitule'),
-                "Entreprise": offre.get('entreprise', {}).get('nom', 'Confidentiel'),
+                "Entreprise": offre.get('entreprise', {}).get('nom', None),
                 "Ville": offre.get('lieuTravail', {}).get('libelle'),
                 "Salaire_Annuel": offre.get('salaire', {}).get('libelle', 'Non affiché'),
                 "Type_Contrat": offre.get('typeContrat'),

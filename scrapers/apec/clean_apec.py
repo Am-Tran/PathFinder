@@ -62,12 +62,20 @@ def extraire_ville_regex(row):
     
     # Si regex échoue, on regarde la colonne Ville existante
     if ville_trouvee is None:
-        ville_existante = str(row['Ville'])
-        if ville_existante and "Non spécifié" not in ville_existante and len(ville_existante) > 2:
-            if " - " in ville_existante:
-                ville_trouvee = ville_existante.split(' - ')[0]
-            else:
-                ville_trouvee = ville_existante
+        valeur_brute = row['Ville']
+        if pd.notna(valeur_brute):
+            ville_existante = str(valeur_brute).strip()
+            if ville_existante.lower() not in ["none", "nan"] and len(ville_existante) > 2:
+                if " - " in ville_existante:
+                    ville_trouvee = ville_existante.split(' - ')[0]
+                else:
+                    ville_trouvee = ville_existante
+        # ville_existante = str(row['Ville'])
+        # if ville_existante and "Non spécifié" not in ville_existante and len(ville_existante) > 2:
+        #     if " - " in ville_existante:
+        #         ville_trouvee = ville_existante.split(' - ')[0]
+        #     else:
+        #         ville_trouvee = ville_existante
 
 
     #Unification des grandes villes (arrondissements) 
@@ -197,8 +205,8 @@ try:
     df_clean['Description'] = df_clean['Description'].apply(nettoyer_texte)
 
     # Nettoyage Titre/Entreprise
-    df_clean['Titre'] = df_clean['Titre'].astype(str).str.strip()
-    df_clean['Entreprise'] = df_clean['Entreprise'].astype(str).str.upper().str.strip()
+    df_clean['Titre'] = df_clean['Titre'].astype(str).str.strip().replace(['nan', 'None'], None)
+    df_clean['Entreprise'] = df_clean['Entreprise'].astype(str).str.upper().str.strip().replace(['NAN', 'NONE'], None)
 
     # Statut
     df_clean['Statut'] = "Prep"
