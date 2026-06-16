@@ -6,6 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
+import re
 import time
 import random
 import os
@@ -32,7 +33,7 @@ if not os.path.exists(INPUT_CSV):
     print(f"❌ ERREUR : {INPUT_CSV} introuvable.")
     exit()
 
-df_source = pd.read_csv(INPUT_CSV, encoding='utf-8', header=None, names=['URL'], nrows=1000)
+df_source = pd.read_csv(INPUT_CSV, encoding='utf-8', header=None, names=['URL'], nrows=100)
 print(f"✅ Chargement de {len(df_source)} offres APEC.")
 
 supabase_url = fetch_key("SUPABASE_URL")
@@ -108,6 +109,39 @@ def extraire_date(soup):
         date_clean = time.strftime("%Y-%m-%d") # Fallback : Date d'aujourd'hui
     return date_clean
 
+def extraire_bandeau(soup) -> str | None:
+    """
+    Extrait et nettoie la ville depuis la dernière puce du bandeau de l'offre APEC.
+    Gère les arrondissements et départements (ex: 'Paris 06 - 75' -> 'Paris').
+    """
+    entreprise = None
+    ville = None
+    try:
+        # Recherche du bandeau de détails
+        bandeau_details = soup.find(lambda tag: tag.has_attr('class') and 
+                    any('details' in c for c in tag['class']) and 
+                    any('offer' in c for c in tag['class']))
+        if not bandeau_details:
+            return entreprise, ville
+            
+        # Récupération des puces du bandeau
+        lis_bandeau = bandeau_details.find_all('li')
+        if not lis_bandeau:
+            return entreprise, ville
+        
+        if len(lis_bandeau) >= 3:
+            entreprise = lis_bandeau[0].get_text(strip=True)
+        
+        ville_brute = lis_bandeau[-1].get_text(strip=True)           
+        ville_clean = re.sub(r'\s*\d{2}.*', '', ville_brute).strip()
+        if len(ville_clean) > 0:
+            ville = ville_clean
+        
+    except Exception as e:
+        print(f"⚠️ Erreur lors de l'extraction du bandeau : {e}")
+    return entreprise, ville
+
+
 # --- 2. LA BOUCLE ---
 try:
     offres_en_memoire = []
@@ -167,7 +201,7 @@ try:
             # --- B. TAGS (Salaire / Ville) ---
             tags = []
             salaire_brut = None
-            ville = None
+            entreprise, ville = extraire_bandeau(soup)
             
             lis = soup.find_all('li')
             for li in lis:
@@ -179,8 +213,7 @@ try:
                     if "sport" not in txt_low: # Évite les avantages CE
                         salaire_brut = txt
                 # Ville
-                elif any(v in txt_low for v in ["paris", "lyon", "marseille", "lille", "bordeaux", "nantes", "toulouse", "cedex"]):
-                    if len(txt) < 50:
+                if( ville is None) and (len(txt) < 50) and any(v in txt_low for v in ["paris", "lyon", "marseille", "lille", "bordeaux", "nantes", "toulouse", "cedex"]):
                         ville = txt
                 
                 tags.append(txt)
