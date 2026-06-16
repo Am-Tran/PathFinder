@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 # --- CONFIGURATION ---
 
-table_choisie = "Data_Analyst_test"
+table_choisie = "Data_Analyst"
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
 if project_root not in sys.path:

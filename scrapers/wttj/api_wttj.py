@@ -15,7 +15,7 @@ import pytz
 from datetime import datetime
 
 # --- CONFIGURATION SUPABASE ---
-table_choisie = "Data_Analyst_test"
+table_choisie = "Data_Analyst"
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(os.path.dirname(current_dir))

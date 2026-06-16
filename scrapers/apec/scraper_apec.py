@@ -15,7 +15,7 @@ from tqdm import tqdm
 from supabase import create_client
 
 # --- 0. CONFIGURATION ---
-table_choisie = "Data_Analyst_test"
+table_choisie = "Data_Analyst"
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
@@ -32,7 +32,7 @@ if not os.path.exists(INPUT_CSV):
     print(f"❌ ERREUR : {INPUT_CSV} introuvable.")
     exit()
 
-df_source = pd.read_csv(INPUT_CSV, encoding='utf-8', header=None, names=['URL'], nrows=100)
+df_source = pd.read_csv(INPUT_CSV, encoding='utf-8', header=None, names=['URL'], nrows=1000)
 print(f"✅ Chargement de {len(df_source)} offres APEC.")
 
 supabase_url = fetch_key("SUPABASE_URL")
