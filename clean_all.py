@@ -337,9 +337,12 @@ df_final['Date_Publication'] = df_final.groupby('URL')['Date_Publication'].trans
 
 print("🧹 Standardisation des grandes villes (Arrondissements)...")
 
-df_final['Ville'] = df_final['Ville'].astype(str).str.replace(r'(?i)^paris.*', 'Paris', regex=True)
-df_final['Ville'] = df_final['Ville'].str.replace(r'(?i)^lyon.*', 'Lyon', regex=True)
-df_final['Ville'] = df_final['Ville'].str.replace(r'(?i)^marseille.*', 'Marseille', regex=True)
+# df_final['Ville'] = df_final['Ville'].astype(str).str.replace(r'(?i)^paris.*', 'Paris', regex=True)
+# df_final['Ville'] = df_final['Ville'].str.replace(r'(?i)^lyon.*', 'Lyon', regex=True)
+# df_final['Ville'] = df_final['Ville'].str.replace(r'(?i)^marseille.*', 'Marseille', regex=True)
+villes_a_harmoniser = ['Paris', 'Lyon', 'Marseille', 'Lille', 'Bordeaux', 'Nantes']
+for ville in villes_a_harmoniser:
+    df_final.loc[df_final['Ville'].str.contains(ville, case=False, na=False), 'Ville'] = ville
 
 # Correction spécifique pour "La Défense" qui apparaît parfois comme "Puteaux" ou "Courbevoie"
 # (Optionnel, mais utile pour regrouper les offres de ce hub)
