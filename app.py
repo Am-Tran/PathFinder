@@ -57,20 +57,19 @@ def get_supabase_client(url, key):
     return create_client(url, key)
 
 
-@st.cache_data(ttl=43200)
-def load_data(_client, batch_size=1000):
+@st.cache_data(ttl=86400, show_spinner="🚀 Synchronisation avec la base de données Pathfinder...")
+def load_data(_client, columns="*", statut=None, batch_size=1000):
     try:
         all_rows = []
         start = 0
         while True:
             end = start + batch_size - 1
-            response = (
-                _client
-                .table("Data_Analyst")
-                .select("Titre, Entreprise, Ville, Source, Type_Contrat, Salaire_Annuel, Date_Publication, Date_Expiration, Niveau, Handicap_Friendly, Tech_Stack")
-                .range(start, end)
-                .execute()
-            )
+
+            query = _client.table("Data_Analyst").select(columns)
+            if statut:
+                query = query.eq("Statut", statut)
+
+            response = query.range(start, end).execute()
             batch = response.data
             if not batch:
                 break
@@ -92,7 +91,7 @@ def load_data(_client, batch_size=1000):
                     df[col] = pd.to_datetime(df[col], errors="coerce")
             if "Handicap_Friendly" in df.columns:
                 df["Handicap_Friendly"] = df["Handicap_Friendly"].astype(bool)
-            colonnes_categorielles = ["Source", "Type_Contrat", "Niveau", "Ville"]
+            colonnes_categorielles = ["Source", "Type_Contrat", "Niveau", "Ville", "Metier"]
             for col in colonnes_categorielles:
                 if col in df.columns:
                     df[col] = df[col].astype('category')
@@ -103,25 +102,33 @@ def load_data(_client, batch_size=1000):
         st.error(f"Erreur lors du chargement Supabase : {e}")
         return pd.DataFrame()
 
-
-    
+ 
 supabase = get_supabase_client(SUPA_URL, SUPA_KEY)
-with st.spinner('🚀 Synchronisation avec la base de données Pathfinder...'):
-    df = load_data(supabase)
+colonnes_actif = "Titre, Entreprise, Ville, Salaire_Annuel, Type_Contrat, Teletravail, Source, Niveau, Tech_Stack, Handicap_Friendly"
+colonnes_trend = "Entreprise, Ville, Type_Contrat, Date_Publication, Date_Expiration, Source, Niveau, Tech_Stack, Handicap_Friendly"  
 
-if df.empty:
+
+df_actif = load_data(supabase, columns=colonnes_actif, statut="Actif")
+df_trends = load_data(supabase, columns=colonnes_trend)
+
+if df_actif.empty and df_trends.empty:
     st.warning("⚠️ Aucune donnée trouvée dans la base.")
     st.stop()
 
+if not df_actif.empty:
+    df_actif = df_actif[df_actif['Ville'] != "France"]
+if not df_trends.empty:
+    df_trends = df_trends[df_trends['Ville'] != "France"]
+
 # --- TITRE ---
 st.title("🔎 PathFinder : Analyse du Marché Data")
-st.markdown(f"**{len(df)}** offres analysées provenant de **France Travail, APEC** et **Welcome to the Jungle**.")
+#st.markdown(f"**{len(df_actif)}** offres analysées provenant de **France Travail, APEC** et **Welcome to the Jungle**.")
 
 # --- SIDEBAR (FILTRES) ---
 #st.sidebar.header("Filtres").venv
 
 # 1. Filtre Source
-source_list = df['Source'].unique().tolist()
+source_list = df_trends['Source'].unique().tolist()
 choix_source = st.sidebar.multiselect(
     "Source", 
     source_list, 
@@ -142,20 +149,22 @@ choix_contrat = st.sidebar.multiselect(
 selected_contrat = choix_contrat if choix_contrat else contrat_list
 
 # 3. Filtre Ville (Top 20)
-top_villes = df['Ville'].value_counts().head(20).index.tolist()
-ville_list = df['Ville'].dropna().unique().tolist()
+top_villes = df_actif['Ville'].value_counts().head(20).index.tolist()
+villes_list = df_trends['Ville'].dropna().unique().tolist()
+autres_villes = sorted([v for v in villes_list if v not in top_villes])
+options_villes = top_villes + autres_villes
 
 choix_ville = st.sidebar.multiselect(
     "Filtrer par Ville", 
-    top_villes, 
+    options=top_villes, 
     default=[], 
     placeholder="Toutes les villes"
 )
-selected_ville = choix_ville if choix_ville else ville_list
+selected_ville = choix_ville if choix_ville else villes_list
 
 # 4. Filtre Niveau
 ordre_niveaux = ["En formation", "Junior", "Confirmé", "Senior", "Non spécifié"]
-niveau_list = [n for n in ordre_niveaux if n in df['Niveau'].unique()]
+niveau_list = [n for n in ordre_niveaux if n in df_trends['Niveau'].unique()]
 
 choix_niveau = st.sidebar.multiselect(
     "Niveau de Séniorité", 
@@ -189,17 +198,38 @@ taille_police = st.sidebar.slider(
 )
 
 # --- APPLICATION DES FILTRES ---
-df_filtered = df[
-    (df['Source'].isin(selected_source)) &
-    (df['Type_Contrat'].isin(selected_contrat)) &
-    (df['Ville'].isin(selected_ville)) &
-    (df['Niveau'].isin(selected_niveau))
-]
+# df_actif = df[
+#     (df['Source'].isin(selected_source)) &
+#     (df['Type_Contrat'].isin(selected_contrat)) &
+#     (df['Ville'].isin(selected_ville)) &
+#     (df['Niveau'].isin(selected_niveau))
+# ]
 
-if rqth_only:    
-    df_filtered = df_filtered[df_filtered['Handicap_Friendly'] == True]
+# if rqth_only:    
+#     df_actif = df_actif[df_actif['Handicap_Friendly'] == True]
+def appliquer_filtres(df_a_filtrer):
+    if df_a_filtrer.empty:
+        return df_a_filtrer
+        
+    masque = (
+        (df_a_filtrer['Source'].isin(selected_source)) &
+        (df_a_filtrer['Type_Contrat'].isin(selected_contrat)) &
+        (df_a_filtrer['Ville'].isin(selected_ville)) &
+        (df_a_filtrer['Niveau'].isin(selected_niveau))
+    )
+    
+    res = df_a_filtrer[masque]
+    
+    if rqth_only and 'Handicap_Friendly' in res.columns:    
+        res = res[res['Handicap_Friendly'] == True]
+        
+    return res
 
-if df_filtered.empty:
+# On filtre les deux tableaux séparément !
+df_actif_filtre = appliquer_filtres(df_actif)
+df_trends_filtre = appliquer_filtres(df_trends)
+
+if df_actif_filtre.empty and df_trends_filtre.empty:
     st.warning("Aucune offre ne correspond à ces critères.")
     st.stop()
 
@@ -213,14 +243,14 @@ tab_actuel, tab_trends, tab_a_propos = st.tabs(["⚡ Aujourd'hui", "📅 Évolut
 # ====================================================================
 with tab_actuel:
     st.markdown("### 🎯 Marché actuel")
-    df_active = df_filtered[df_filtered['Date_Expiration'].isna()]
+    df_aujourdhui = df_actif_filtre.copy()
 
     # --- KPI ---
     st.markdown("---")
     col1, col2, col3 = st.columns(3)
 
-    nb_offres = len(df_active)
-    df_salaires = df_active[df_active['Salaire_Annuel'].notna()]
+    nb_offres = len(df_aujourdhui)
+    df_salaires = df_aujourdhui[df_aujourdhui['Salaire_Annuel'].notna()]
     df_salaires['Salaire_Annuel'] = pd.to_numeric(df_salaires['Salaire_Annuel'], errors='coerce')
     salaire_moyen = df_salaires['Salaire_Annuel'].mean()
 
@@ -245,7 +275,7 @@ with tab_actuel:
 
     with col_g1:
         st.subheader("📍 Répartition par Ville")
-        ville_counts = df_active['Ville'].value_counts().head(10).reset_index()
+        ville_counts = df_aujourdhui['Ville'].value_counts().head(10).reset_index()
         ville_counts.columns = ['Ville', 'Nombre']
         ville_counts = ville_counts.sort_values(by="Nombre", ascending=True)
         fig_ville = px.bar(ville_counts, x='Nombre', y='Ville', orientation='h', color='Nombre', title="Top 10 Villes")
@@ -305,7 +335,7 @@ with tab_actuel:
     st.markdown("---")
     st.subheader("🛠️ Les Technologies les plus demandées")   
         
-    stack_data = df_active['Tech_Stack'].dropna().str.split(', ').explode()
+    stack_data = df_aujourdhui['Tech_Stack'].dropna().str.split(', ').explode()
     stack_data = stack_data.str.strip()
     stack_data = stack_data[stack_data != ""]
 
@@ -366,7 +396,7 @@ with tab_actuel:
         st.subheader("📄 Répartition des Contrats")
 
         fig_contrat = px.pie(
-            df_active, 
+            df_aujourdhui, 
             names='Type_Contrat', 
             title='Répartition par Type de Contrat',
             hole=0.4,            
@@ -401,7 +431,7 @@ with tab_actuel:
         st.subheader("🎓 Niveau de Séniorité Ciblé")
 
         fig_niveau = px.pie(
-            df_filtered, 
+            df_actif_filtre, 
             names='Niveau', 
             title='Répartition par Séniorité',
             hole=0.4,
@@ -444,10 +474,10 @@ with tab_actuel:
     #         'Date_Publication', 
     #         'URL'              # ou 'URL' selon ton fichier
     #     ]
-    #     cols_final = [c for c in colonnes_a_afficher if c in df_active.columns]
+    #     cols_final = [c for c in colonnes_a_afficher if c in df_aujourdhui.columns]
 
     #     st.dataframe(
-    #     df_active[cols_final],
+    #     df_aujourdhui[cols_final],
     #     width="stretch", # Prend toute la largeur
     #     hide_index=True,          # Cache la colonne d'index (0, 1, 2...)
         
@@ -477,21 +507,21 @@ with tab_trends:
     
     # 1. Évolution du volume d'offres par mois
     # On groupe par mois (M) sur la date de publication
-    df_trends = df_filtered.dropna(subset=['Date_Publication']).copy()
-    df_trends['Date_Publication'] = pd.to_datetime(df_trends['Date_Publication'])
+    df_historique = df_trends_filtre.dropna(subset=['Date_Publication']).copy()
+    df_historique['Date_Publication'] = pd.to_datetime(df_historique['Date_Publication'])
         
-    if not df_trends.empty:
-        df_trends['Mois'] = df_trends['Date_Publication'].dt.to_period('M').astype(str)        
+    if not df_historique.empty:
+        df_historique['Mois'] = df_historique['Date_Publication'].dt.to_period('M').astype(str)        
 
         # =========================================================
         # ✂️ FILTRE TEMPOREL (On coupe le début trop vide)
         # =========================================================
         # On s'assure que c'est bien un format date
-        df_trends['Date_Publication'] = pd.to_datetime(df_trends['Date_Publication'])
+        df_historique['Date_Publication'] = pd.to_datetime(df_historique['Date_Publication'])
         
         # On ne garde que ce qui est APRES start_date
         start_date = '2025-09-01'
-        df_trends = df_trends[df_trends['Date_Publication'] >= start_date]
+        df_historique = df_historique[df_historique['Date_Publication'] >= start_date]
 
         # Marqueurs historiques
         Date_debut = "2026-01-26"
@@ -499,23 +529,23 @@ with tab_trends:
         # =========================================================
 
         # Si jamais le filtre est trop violent et qu'il ne reste rien :
-        if df_trends.empty:
+        if df_historique.empty:
             st.warning(f"Pas assez de données après le {start_date} pour afficher les tendances.")
         else:
-            df_trends['Semaine'] = df_trends['Date_Publication'].dt.to_period('W').apply(lambda r: r.start_time)
-            df_weekly = df_trends.groupby('Semaine').size().reset_index(name="Nombre d'offres")
+            df_historique['Semaine'] = df_historique['Date_Publication'].dt.to_period('W').apply(lambda r: r.start_time)
+            df_weekly = df_historique.groupby('Semaine').size().reset_index(name="Nombre d'offres")
 
             # --- CALCUL DES KPIs HISTORIQUES ---
         
             # 1. Volume total sur la période
-            total_offres = len(df_trends)        
+            total_offres = len(df_historique)        
             # 2. Nombre d'entreprises uniques
             # On normalise un peu (strip/upper) pour éviter de compter "Google" et "GOOGLE " en double
-            nb_entreprises = df_trends['Entreprise'].str.strip().str.upper().nunique()
+            nb_entreprises = df_historique['Entreprise'].str.strip().str.upper().nunique()
             
             # 3. Durée de vie moyenne des offres (Vélocité)
             # On ne garde que celles qui ont une date d'expiration (donc les offres finies/archivées)
-            df_finished = df_trends.dropna(subset=['Date_Expiration']).copy()
+            df_finished = df_historique.dropna(subset=['Date_Expiration']).copy()
             
             if not df_finished.empty:
                 # Calcul de la différence en jours
@@ -561,7 +591,7 @@ with tab_trends:
 
             # ===== GRAPHIQUE VOLUME =====
             st.markdown("#### 📈 Dynamique des Recrutements")
-            volume_par_mois = df_trends.groupby('Mois').size().reset_index(name='Nombre d\'offres')
+            volume_par_mois = df_historique.groupby('Mois').size().reset_index(name='Nombre d\'offres')
             
             fig_evol = px.area(
                 df_weekly,
@@ -602,7 +632,7 @@ with tab_trends:
 
             # ===== ANALYSE DES STACKS =====
             st.markdown("#### 🔥 Popularité des compétences Tech")
-            tech_series = df_trends['Tech_Stack'].dropna().str.split(', ').explode()
+            tech_series = df_historique['Tech_Stack'].dropna().str.split(', ').explode()
             technos_dispo = sorted(tech_series.dropna().unique())
 
             # --- Sélection par défaut ---
@@ -621,14 +651,14 @@ with tab_trends:
             # --- Boucle de calcul ---
             if selected_techs:
                 # On prépare l'index avec tous les mois
-                #all_months = sorted(df_trends['Mois'].unique())
-                all_weeks = sorted(df_trends['Semaine'].unique())
+                #all_months = sorted(df_historique['Mois'].unique())
+                all_weeks = sorted(df_historique['Semaine'].unique())
                 data_tech = pd.DataFrame(index=all_weeks)
 
                 for tech in selected_techs:
                     # On utilise la colonne Tech_Stack
-                    mask = df_trends['Tech_Stack'].str.contains(tech, case=False, regex=False, na=False)
-                    counts = df_trends[mask].groupby('Semaine').size()
+                    mask = df_historique['Tech_Stack'].str.contains(tech, case=False, regex=False, na=False)
+                    counts = df_historique[mask].groupby('Semaine').size()
                     data_tech[tech] = counts
 
                 data_tech = data_tech.fillna(0)           
@@ -676,7 +706,7 @@ with tab_trends:
             # 1. Préparation des données (Pivot pour gérer les mois vides)
             # On groupe par Mois et Contrat, puis on 'unstack' pour avoir les contrats en colonnes
             # fill_value=0 est CRUCIAL : si un mois n'a pas de "Stage", ça met 0 au lieu de rien
-            evol_contrat = df_trends.groupby(['Semaine', 'Type_Contrat']).size().unstack(fill_value=0)
+            evol_contrat = df_historique.groupby(['Semaine', 'Type_Contrat']).size().unstack(fill_value=0)
 
             # 2. Création du graphique Plotly
             fig_contrat = px.line(
