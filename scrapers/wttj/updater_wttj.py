@@ -34,8 +34,7 @@ date_du_jour = pd.to_datetime(date_actuelle)
 print("☁️ Récupération des offres actives depuis Supabase...")
 filters_wttj_update= {
     "source": "Welcome to the Jungle",
-    "statut": "Actif",
-    "only_active": True
+    "statut": "Actif"
     }
 df_base = load_data(supabase, table_name=table_choisie, limit=None, filters = filters_wttj_update)   
 
