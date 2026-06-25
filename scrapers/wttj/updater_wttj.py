@@ -36,7 +36,10 @@ filters_wttj_update= {
     "source": "Welcome to the Jungle",
     "statut": "Actif"
     }
-df_base = load_data(supabase, table_name=table_choisie, limit=None, filters = filters_wttj_update)   
+df_base = load_data(supabase, table_name=table_choisie, limit=None, filters = filters_wttj_update)
+if df_base.empty or 'Date_Publication' not in df_base.columns:
+    print("⚠️ Impossible de récupérer les données ou timeout Supabase. Arrêt du script.")
+    sys.exit(1)   
 
 df_a_verifier = df_base[
     # (df_base['Source'] == 'Welcome to the Jungle') & 
@@ -47,13 +50,9 @@ df_a_verifier = df_base[
 print(f"🕵️ {len(df_a_verifier)} offres à vérifier dans la base de données.")
 if len(df_a_verifier) == 0:
     print(" ⚠️ Il n'y a aucune offre active de l'APEC.")
-    exit()
+    sys.exit(0)
 
 print(f"🕵️  Offres actives à vérifier : {len(df_a_verifier)}")
-
-if len(df_a_verifier) == 0:
-    print("✅ Tout est à jour.")
-    exit()
 
 # --- ROBOT ---
 options = webdriver.ChromeOptions()

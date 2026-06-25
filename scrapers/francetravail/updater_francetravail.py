@@ -62,12 +62,15 @@ filtres_ft_update = {
     "statut": "Actif"
 }
 df_base = load_data(supabase, table_name=table_choisie, limit = None, filters=filtres_ft_update)
+if df_base.empty or 'Date_Publication' not in df_base.columns:
+    print("⚠️ Impossible de récupérer les données ou timeout Supabase. Arrêt du script.")
+    sys.exit(1)
 df_base = df_base[df_base['Date_Publication'].dt.date != date_actuelle]
 
 print(f"🕵️ {len(df_base)} offres à vérifier dans la base de données.")
 if len(df_base) == 0:
     print(" ⚠️ Il n'y a aucune offre active de FranceTravail.")
-    exit()
+    sys.exit(0)
 # ------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # --- FONCTION SCRAPING ---
