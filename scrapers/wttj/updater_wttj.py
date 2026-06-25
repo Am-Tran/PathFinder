@@ -49,7 +49,7 @@ df_a_verifier = df_base[
 
 print(f"🕵️ {len(df_a_verifier)} offres à vérifier dans la base de données.")
 if len(df_a_verifier) == 0:
-    print(" ⚠️ Il n'y a aucune offre active de l'APEC.")
+    print(" ⚠️ Il n'y a aucune offre active de Welcome to the Jungle.")
     sys.exit(0)
 
 print(f"🕵️  Offres actives à vérifier : {len(df_a_verifier)}")
