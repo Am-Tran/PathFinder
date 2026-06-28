@@ -3,7 +3,6 @@ import sys
 import pandas as pd
 import time
 import random
-import re
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -15,21 +14,33 @@ from datetime import datetime
 from supabase import create_client
 
 # --- CONFIGURATION ---
+table_choisie = "Data_Analyst"
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
 if project_root not in sys.path:
     sys.path.append(project_root)
-from utils import fetch_key, load_data
+from utils import fetch_key, mapping_metier, load_data, sauvegarde_securisee
 
 supabase_url = fetch_key("SUPABASE_URL")
 supabase_key = fetch_key("SUPABASE_KEY")
-supabase = create_client(supabase_url, supabase_key)
+if not supabase_url or not supabase_key:
+        print("❌ ERREUR : Clés Supabase introuvables.")
+        sys.exit(1)
+supabase = create_client(supabase_url, supabase_key)   
+print("📥 Récupération du stock actuel pour éviter les doublons...")
+filters_apec_crawler= {
+"source": "APEC",
+"statut": "Actif",
+"column": "URL"
+}
+df_base = load_data(supabase, table_name=table_choisie, limit=None, filters = filters_apec_crawler)
+ids_connus = set()
+if not df_base.empty:
+    ids_connus = set(df_base['URL'].dropna())
+print(f"🛡️ {len(ids_connus)} offres APEC déjà en base. Elles seront ignorées.")
+print("🚀 Lancement du crawler APEC...")    
 
-table_choisie = "Data_Analyst"
-
-if project_root not in sys.path:
-    sys.path.append(project_root)
-from utils import sauvegarde_securisee
 
 OUTPUT_CSV = os.path.join(project_root, "data", "raw", "offres_apec_url.csv")
 
@@ -56,29 +67,29 @@ def extraire_id(url_brute):
     return id_offre.strip()
 
 # --- CHARGEMENT DE L'HISTORIQUE ---
-chemin_history = os.path.join(project_root, "data", "enriched", "offres_apec_full.csv")
-ids_connus = set()
+# chemin_history = os.path.join(project_root, "data", "enriched", "offres_apec_full.csv")
+# ids_connus = set()
 
-print("🔄 Chargement de l'historique...")
-if os.path.exists(chemin_history):
-    try:
-        df_history = pd.read_csv(chemin_history)
+# print("🔄 Chargement de l'historique...")
+# if os.path.exists(chemin_history):
+#     try:
+#         df_history = pd.read_csv(chemin_history)
         
-        # Recherche de la colonne URL
-        col_url = None
-        if 'URL' in df_history.columns:
-            col_url = 'URL'
-        if col_url:    
-            raw_urls = df_history[col_url].dropna().tolist()
-            ids_connus = set([extraire_id(u) for u in raw_urls])
-            print(f"🧠 Historique chargé et nettoyé : {len(ids_connus)} offres uniques en mémoire.")
-        else:
-            print("⚠️ Pas de colonne URL trouvée dans le fichier historique.")
+#         # Recherche de la colonne URL
+#         col_url = None
+#         if 'URL' in df_history.columns:
+#             col_url = 'URL'
+#         if col_url:    
+#             raw_urls = df_history[col_url].dropna().tolist()
+#             ids_connus = set([extraire_id(u) for u in raw_urls])
+#             print(f"🧠 Historique chargé et nettoyé : {len(ids_connus)} offres uniques en mémoire.")
+#         else:
+#             print("⚠️ Pas de colonne URL trouvée dans le fichier historique.")
             
-    except Exception as e:
-        print(f"❌ Erreur lecture historique : {e}")
-else:
-    print("✨ Aucun historique trouvé, on part de zéro.")
+#     except Exception as e:
+#         print(f"❌ Erreur lecture historique : {e}")
+# else:
+#     print("✨ Aucun historique trouvé, on part de zéro.")
 
 urls_trouvees_ce_jour = [] # On stockera ici les URLs propres trouvées aujourd'hui
 
@@ -232,15 +243,6 @@ finally:
             print("✅ SUCCÈS : Base de données mise à jour avec les nouvelles URLs.")
         except Exception as e:
             print(f"❌ Erreur lors de l'envoi à Supabase : {e}")
-        # --- 2. SAUVEGARDE LOCALE (Pour le Scraper V1) ---
-        try:
-            os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
-            df_urls = pd.DataFrame(urls_trouvees_ce_jour, columns=["URL"])
-            # On recrée le fichier pour le scraper
-            sauvegarde_securisee(df_urls, OUTPUT_CSV)
-            print(f"✅ SUCCÈS LOCAL : 'offres_apec_url.csv' généré pour le scraper.")
-        except Exception as e:
-            print(f"❌ Erreur lors de la création du CSV : {e}")
-
+      
     else:
-        print("Ø Aucune nouvelle offre détectée par rapport à l'historique.")  
+        print("Ø Aucune nouvelle offre détectée par rapport à l'historique.") 

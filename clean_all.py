@@ -150,16 +150,10 @@ def nettoyer_contrats(df):
     # C. DÉTECTEUR CDI CACHÉ (Le plus complexe)
     # 1. Inclusion : On cherche "CDI" ou "Durée indéterminée"
     regex_cdi = r"\b(?:CDI|durée indéterminée)\b"
-    mask_contient_cdi = df['Description'].astype(str).str.contains(regex_cdi, case=False, regex=True, na=False)
-
-    # 2. Exclusion : On fuit "possibilité de CDI", "vue sur CDI", etc.
-    #regex_cdi_piege = r"(?:possibilit|perspective|débouch|vue|objectif|finalité|suite|embauche|stage|futur|après).{0,30}\bCDI\b"
-    #mask_cdi_piege = df['Description'].astype(str).str.contains(regex_cdi_piege, case=False, regex=True, na=False)
+    mask_contient_cdi = df['Description'].astype(str).str.contains(regex_cdi, case=False, regex=True, na=False)    
 
     # 3. Résultat : C'est un VRAI CDI Caché
-    mask_vrai_cdi_cache = mask_contient_cdi 
-    #& (~mask_cdi_piege)
-
+    mask_vrai_cdi_cache = mask_contient_cdi
 
     # --- APPLICATION DES RÈGLES (Ordre Chronologique) ---
     
@@ -289,46 +283,13 @@ if df_final.empty:
     sys.exit(0)    
 else:
     # 🛠️ CORRECTION DATE : On s'assure que c'est un format date reconnu par Pandas
-    df_final['Date_Publication'] = pd.to_datetime(df_final['Date_Publication'], errors='coerce')
-
-    # df_ft = response[
-    #     (response['Source'] == 'France Travail') & 
-    #     (response['Date_Expiration'].isna()) &
-    #     (response['Date_Publication'].dt.date <= date_actuelle)
-    #     ].copy()
-    
-    # df_apec = response[
-    #     (response['Source'] == 'APEC') & 
-    #     (response['Date_Expiration'].isna()) &
-    #     (response['Date_Publication'].dt.date <= date_actuelle)
-    #     ].copy()
-    
-    # df_wttj = response[
-    #     (response['Source'] == 'Welcome to the Jungle') & 
-    #     (response['Date_Expiration'].isna()) &
-    #     (response['Date_Publication'].dt.date <= date_actuelle)
-    #     ].copy()
-    
-    
-    # for df_temp, nom in [(df_ft, "France Travail"), (df_apec, "APEC"), (df_wttj, "Welcome to the Jungle")]:
-    #     if not df_temp.empty:
-    #         print(f"✅ Chargé : {len(df_temp)} offres {nom}.")            
-    #         for c in cols_globales:
-    #             if c not in df_temp.columns: df_temp[c] = None
-    #         dataframes.append(df_temp[cols_globales])   
+    df_final['Date_Publication'] = pd.to_datetime(df_final['Date_Publication'], errors='coerce')     
 
 # endregion
 
 # ======================================================================================================================================================
 
 # region 4. --- FUSION ---
-
-# if not dataframes:
-#     print("❌ Aucun fichier chargé. Arrêt.")
-#     exit()
-
-# print("🌪️  Mélange des données...")
-# df_final = pd.concat(dataframes, ignore_index=True)
 
 # === CORRECTION DE L'ANCIENNETÉ (FIX DURÉE DE VIE) ===
 
@@ -337,9 +298,6 @@ df_final['Date_Publication'] = df_final.groupby('URL')['Date_Publication'].trans
 
 print("🧹 Standardisation des grandes villes (Arrondissements)...")
 
-# df_final['Ville'] = df_final['Ville'].astype(str).str.replace(r'(?i)^paris.*', 'Paris', regex=True)
-# df_final['Ville'] = df_final['Ville'].str.replace(r'(?i)^lyon.*', 'Lyon', regex=True)
-# df_final['Ville'] = df_final['Ville'].str.replace(r'(?i)^marseille.*', 'Marseille', regex=True)
 villes_a_harmoniser = ['Paris', 'Lyon', 'Marseille', 'Lille', 'Bordeaux', 'Nantes']
 for ville in villes_a_harmoniser:
     df_final.loc[df_final['Ville'].str.contains(ville, case=False, na=False), 'Ville'] = ville

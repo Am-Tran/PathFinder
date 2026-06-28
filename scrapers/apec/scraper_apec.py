@@ -23,22 +23,37 @@ project_root = os.path.dirname(os.path.dirname(current_dir))
 
 if project_root not in sys.path:
     sys.path.append(project_root)
-from utils import fetch_key, upsert_data
+from utils import fetch_key, upsert_data, load_data
 
-INPUT_CSV = os.path.join(project_root, "data", "raw", "offres_apec_url.csv")
+# INPUT_CSV = os.path.join(project_root, "data", "raw", "offres_apec_url.csv")
 
-ordre_colonnes = ["Titre", "Entreprise", "Ville", "Salaire_Brut", "Details_Tags", "Description_Complete", "URL", "Date", "Date_Expiration", "Source", "Statut"]
+# ordre_colonnes = ["Titre", "Entreprise", "Ville", "Salaire_Brut", "Details_Tags", "Description_Complete", "URL", "Date", "Date_Expiration", "Source", "Statut"]
 
-if not os.path.exists(INPUT_CSV):
-    print(f"❌ ERREUR : {INPUT_CSV} introuvable.")
-    exit()
+# if not os.path.exists(INPUT_CSV):
+#     print(f"❌ ERREUR : {INPUT_CSV} introuvable.")
+#     exit()
 
-df_source = pd.read_csv(INPUT_CSV, encoding='utf-8', header=None, names=['URL'], nrows=100)
-print(f"✅ Chargement de {len(df_source)} offres APEC.")
+# df_source = pd.read_csv(INPUT_CSV, encoding='utf-8', header=None, names=['URL'], nrows=100)
+# print(f"✅ Chargement de {len(df_source)} offres APEC.")
 
 supabase_url = fetch_key("SUPABASE_URL")
 supabase_key = fetch_key("SUPABASE_KEY")
-supabase = create_client(supabase_url, supabase_key)
+if not supabase_url or not supabase_key:
+        print("❌ ERREUR : Clés Supabase introuvables.")
+        sys.exit(1)
+supabase = create_client(supabase_url, supabase_key)   
+print("📥 Récupération du stock actuel pour éviter les doublons...")
+filters_apec_scraper= {
+"source": "APEC",
+"statut": "Cible",
+"column": "URL"
+}
+df_source = load_data(supabase, table_name=table_choisie, limit=None, filters = filters_apec_scraper)
+
+if not df_source.empty:
+    ids_connus = set(df_source['URL'].dropna())
+print(f"🛡️ {len(ids_connus)} offres APEC déjà en base. Elles seront ignorées.")
+print("🚀 Lancement du crawler APEC...")
 
 # Reprise automatique
 
@@ -79,7 +94,7 @@ def extraire_description(soup):
 
     # 2. Plan B : Le texte le plus long (mais sans le risque cookie cette fois)
     candidats = soup.find_all(['div', 'section'])
-    meilleur_texte = "Description introuvable"
+    meilleur_texte = None
     max_len = 0
     
     for c in candidats:
@@ -109,37 +124,62 @@ def extraire_date(soup):
         date_clean = time.strftime("%Y-%m-%d") # Fallback : Date d'aujourd'hui
     return date_clean
 
-def extraire_bandeau(soup) -> str | None:
+def extraire_bandeau(soup) -> tuple[str | None, str | None, str | None]:
     """
     Extrait et nettoie la ville depuis la dernière puce du bandeau de l'offre APEC.
-    Gère les arrondissements et départements (ex: 'Paris 06 - 75' -> 'Paris').
+    
     """
     entreprise = None
     ville = None
+    contrat = None
     try:
         # Recherche du bandeau de détails
         bandeau_details = soup.find(lambda tag: tag.has_attr('class') and 
                     any('details' in c for c in tag['class']) and 
                     any('offer' in c for c in tag['class']))
         if not bandeau_details:
-            return entreprise, ville
+            return entreprise, ville, contrat
             
         # Récupération des puces du bandeau
         lis_bandeau = bandeau_details.find_all('li')
         if not lis_bandeau:
-            return entreprise, ville
+            return entreprise, ville, contrat
         
-        if len(lis_bandeau) >= 3:
-            entreprise = lis_bandeau[0].get_text(strip=True)
+        mots_bannis = ["linkedin", "twitter", "facebook", "imprimer"]
+        puces_propres = []
+        for li in lis_bandeau:
+            texte = li.get_text(strip=True)
+            if texte and not any(mot in texte.lower() for mot in mots_bannis):
+                puces_propres.append(texte)
         
-        ville_brute = lis_bandeau[-1].get_text(strip=True)           
+        if not puces_propres:
+            return entreprise, ville, contrat
+        
+        premiere_puce = puces_propres[0]
+        mots_contrats = ["cdi", "cdd", "stage", "alternance", "indépendant", "intérim", "freelance", "apprentissage"]
+
+        for mot in mots_contrats:
+            if mot in premiere_puce.lower():
+                contrat = mot                
+                break
+        else:
+            entreprise = premiere_puce
+            for puce in puces_propres[1:]:
+                for mot in mots_contrats:
+                    if mot in puce.lower():
+                        contrat = mot
+                        break
+                if contrat:
+                    break
+
+        ville_brute = puces_propres[-1]           
         ville_clean = re.sub(r'\s*\d{2}.*', '', ville_brute).strip()
-        if len(ville_clean) > 0:
+        if len(ville_clean) > 0 and ville_clean != contrat:
             ville = ville_clean
-        
+
     except Exception as e:
         print(f"⚠️ Erreur lors de l'extraction du bandeau : {e}")
-    return entreprise, ville
+    return entreprise, ville, contrat
 
 
 # --- 2. LA BOUCLE ---
@@ -186,9 +226,15 @@ try:
             
             # [MODIFICATION ICI] Si l'offre est morte, on l'abandonne totalement
             if "offre n'est plus en ligne" in description.lower() or "erreur inattendue" in description.lower():
-                print("🗑️  Offre expirée entre-temps. Ignorée (pas de sauvegarde).")
+                print("🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.")
                 # On l'ajoute à la liste locale pour ne pas la retenter si la boucle continue
                 deja_faites.append(url)
+                offres_en_memoire.append({
+                    "URL": url,
+                    "Source": "APEC",
+                    "Statut": "Archivé",
+                    "Date_Expiration": datetime.now().strftime("%Y-%m-%d")
+                })
                 continue
             
             # --- A. DONNÉES ---
@@ -201,7 +247,7 @@ try:
             # --- B. TAGS (Salaire / Ville) ---
             tags = []
             salaire_brut = None
-            entreprise, ville = extraire_bandeau(soup)
+            entreprise, ville, contrat = extraire_bandeau(soup)
             
             lis = soup.find_all('li')
             for li in lis:
@@ -225,8 +271,9 @@ try:
             # --- SAUVEGARDE ---      
             nouvelle_ligne = {
                 "Titre": titre_reel,
-                "Entreprise": None,
+                "Entreprise": entreprise,
                 "Ville": ville,
+                "Type_Contrat": contrat,
                 "Salaire_Annuel": salaire_brut,                
                 "Description": description_totale,
                 "Source" : "APEC",
