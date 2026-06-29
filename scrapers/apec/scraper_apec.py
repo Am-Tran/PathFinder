@@ -186,8 +186,13 @@ def extraire_bandeau(soup) -> tuple[str | None, str | None, str | None]:
 try:
     offres_en_memoire = []
     deja_faites = []
+    heure_demarrage = time.time()
+    LIMITE_TEMPS = (5 * 3600) + (30 * 60)
 
     for index, row in tqdm(df_source.iterrows(), desc="Scraping APEC"):
+        if time.time() - heure_demarrage > LIMITE_TEMPS:
+            print("\n⏳ Limite de 5h30 atteinte ! Arrêt d'urgence pour sauvegarder...")
+            break
         url = row['URL']
         titre_csv = 'Inconnu'
         
@@ -290,15 +295,21 @@ try:
             print(f"❌ Erreur : {e}")
 except KeyboardInterrupt:
     print("\n🛑 INTERRUPTED ! Sauvegarde d'urgence...")
-    upsert_data(supabase, table_choisie, offres_en_memoire)
-    driver.quit()
+    # upsert_data(supabase, table_choisie, offres_en_memoire)
+    # driver.quit()
     exit(0)
 except Exception as e:
     print(f"❌ Erreur : {e}")
-    upsert_data(supabase, table_choisie, offres_en_memoire)
-    driver.quit()
+    # upsert_data(supabase, table_choisie, offres_en_memoire)
+    # driver.quit()
     exit(1)
 
-upsert_data(supabase, table_choisie, offres_en_memoire)
-driver.quit()
-print("Fin de scraper_apec ==> Lancer clean_apec")
+finally:
+    print("\n💾 Sauvegarde finale avant fermeture...")
+    if offres_en_memoire:
+        upsert_data(supabase, table_choisie, offres_en_memoire)
+    try:
+        driver.quit()
+    except:
+        pass
+    print("Fin de scraper_apec ==> Lancer clean_apec")
