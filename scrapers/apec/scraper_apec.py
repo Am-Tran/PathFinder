@@ -60,9 +60,11 @@ print("🚀 Lancement du crawler APEC...")
 
 # --- 1. LE ROBOT ---
 options = webdriver.ChromeOptions()
+#options.add_argument("--start-maximized")
 options.add_argument("--disable-blink-features=AutomationControlled")
-options.add_argument("--start-maximized")
-options.add_argument("--headless")
+options.add_argument("--headless") # Laisse commenté pour voir le robot travailler
+options.add_argument("--no-sandbox") # Sécurité requise sur les serveurs Linux
+options.add_argument("--disable-dev-shm-usage") # Évite les crashs de mémoire (RAM)
 
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
