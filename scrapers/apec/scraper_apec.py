@@ -50,8 +50,11 @@ filters_apec_scraper= {
 }
 df_source = load_data(supabase, table_name=table_choisie, limit=None, filters = filters_apec_scraper)
 
-if not df_source.empty:
-    ids_connus = set(df_source['URL'].dropna())
+if df_source.empty:
+    print("✨ Aucune nouvelle offre 'Cible' à scraper. Arrêt du script.")
+    sys.exit(0)
+
+ids_connus = set(df_source['URL'].dropna())
 print(f"🛡️ {len(ids_connus)} offres APEC déjà en base. Elles seront ignorées.")
 print("🚀 Lancement du crawler APEC...")
 

@@ -99,16 +99,23 @@ PAGES_A_SCRAPER = 38  # 5 pages = environ 100 offres (L'Apec met 20 offres par p
 
 # --- INITIALISATION DU ROBOT ---
 options = webdriver.ChromeOptions()
+options.page_load_strategy = 'eager' #on n'attend pas que les trackers/images chargent
 options.add_argument("--disable-blink-features=AutomationControlled")
 options.add_argument("--headless") # Laisse commenté pour voir le robot travailler
 options.add_argument("--no-sandbox") # Sécurité requise sur les serveurs Linux
 options.add_argument("--disable-dev-shm-usage") # Évite les crashs de mémoire (RAM)
+options.add_argument("--disable-gpu") # Sécurité supplémentaire sous Linux
 
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+driver.set_page_load_timeout(60) # On réduit le timeout parce qu'on est en eager load_strategy
 driver.set_window_size(1920, 1080)
 stop_scraping = False
 try:
-    driver.get(URL_APEC)
+    try:
+        driver.get(URL_APEC)
+    except Exception as e:
+        print(f"⚠️ Page trop longue à charger, arrêt du chargement... ({e})")        
+        sys.exit(1)
     
     # 1. GESTION DES COOKIES
     print("🍪 Tentative d'acceptation des cookies...")
