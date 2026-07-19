@@ -6,7 +6,8 @@ mapping_metier = {
     "Analyste de données": "Data Analyst",
     "Data Scientist": "Data Scientist",
     "Business Analyst": "Business Analyst",
-    "Business Intelligence": "Business Analyst"
+    "Business Intelligence": "Business Analyst",
+    #"Data Engineer": "Data Engineer"
 }
 
 def sauvegarde_securisee(df, chemin_fichier):

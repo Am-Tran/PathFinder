@@ -15,15 +15,17 @@ from datetime import datetime
 from supabase import create_client
 from tqdm import tqdm
 import pytz
+import undetected_chromedriver as uc
+
 
 # --- CONFIGURATION ---
 
-table_choisie = "Data_Analyst"
+table_choisie = "Data_Analyst_test"
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
 if project_root not in sys.path:
     sys.path.append(project_root)
-from utils import fetch_key, load_data
+from utils import fetch_key, load_data, upsert_data
 
 supabase_url = fetch_key("SUPABASE_URL")
 supabase_key = fetch_key("SUPABASE_KEY")
@@ -45,9 +47,8 @@ if df_base.empty:
         print("✅ Aucun ancien stock à vérifier.")
         exit()
 
-df_a_verifier = df_base[
-    # (df_base['Source'] == 'APEC') & 
-    # (df_base['Date_Expiration'].isna()) &
+df_base['Date_Publication'] = pd.to_datetime(df_base['Date_Publication'], errors='coerce')
+df_a_verifier = df_base[    
     (df_base['Date_Publication'].dt.date != date_actuelle)
 ]
 df_a_verifier = df_a_verifier.sort_values(by="Date_Publication", ascending=True)
@@ -62,10 +63,24 @@ ordre_colonnes = ["Titre", "Entreprise", "Ville", "Salaire_Brut", "Details_Tags"
 
 
 # --- ROBOT ---
-options = webdriver.ChromeOptions()
-options.add_argument("--disable-blink-features=AutomationControlled")
-options.add_argument("--headless") # Décommentez pour exécuter sans fenêtre (plus rapide)
-driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+
+# options = webdriver.ChromeOptions()
+# options.add_argument("--disable-blink-features=AutomationControlled")
+# options.add_argument("--headless") # Décommentez pour exécuter sans fenêtre (plus rapide)
+# driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+options = uc.ChromeOptions()
+options.add_argument("--window-size=1920,1080")
+options.add_argument("--no-sandbox") # Sécurité requise sur les serveurs Linux
+options.add_argument("--disable-dev-shm-usage") # Évite les crashs de mémoire (RAM)
+
+driver = uc.Chrome(options=options,version_main=150)
+driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+    'source': '''
+        Object.defineProperty(navigator, 'webdriver', {
+          get: () => undefined
+        })
+    '''
+})
 
 def tuer_cookies(driver):
     try:
@@ -116,33 +131,33 @@ try:
             soup = BeautifulSoup(driver.page_source, 'html.parser')           
             
             # --- LOGIQUE DE DIAGNOSTIC ---
-            balise_morte = soup.find("apec-offre-unpublished-archived")            
-            balise_vivante_class = soup.find(class_="card_offer__text")
-            balise_vivante_tag = soup.find(["apec-detail-emploi", "apec-poste-information", "apec_offre_metadata"])
+            div_officielle = soup.select_one(".details-offer-content")
+            texte_page = soup.get_text(separator=" ", strip=True).lower()
 
             # --- DÉCISION ---
-            if balise_morte:
+            if "offre n'est plus en ligne" in texte_page or "cette offre n'est plus disponible" in texte_page or "erreur inattendue" in texte_page:
                 offres_a_mettre_a_jour.append({
                     "URL": url, 
                     "Date_Expiration": datetime.now().strftime("%Y-%m-%d"),
                     "Statut": "Archivé"
                 })
                 
-                print(f" ❌ EXPIRÉE (Balise 'archived' détectée)")
+                tqdm.write(f" ❌ EXPIRÉE : {url}")
                 compteur_morts += 1
                 
-            elif balise_vivante_class or balise_vivante_tag:
-                print(" ✅ VIVANTE (Structure d'offre détectée)")
+            elif div_officielle:
+                # L'offre est vivante, on ne spamme pas la console pour aller plus vite
                 compteur_vivants += 1           
                 
             else:
                 # Si on n'a NI l'un NI l'autre, c'est qu'on a probablement mangé un Captcha !
-                print(" ⚠️ DOUTE (Page non reconnue -> Captcha ou blocage ?)")
+                tqdm.write(f" ⚠️ DOUTE (Page non reconnue) : {url}")
                 compteur_doutes += 1
-                nom_photo = f"debug_apec_{i}.png"
-                driver.save_screenshot(nom_photo)
-                print(f"   📸 Photo prise : {nom_photo}")
-                time.sleep(5)
+                
+                # On limite le nombre de photos à 10 pour ne pas saturer ton disque dur
+                if compteur_doutes <= 10:
+                    nom_photo = f"debug_apec_doute_{compteur_doutes}.png"
+                    driver.save_screenshot(nom_photo)
             
         except Exception as e:
                     print(f"⚠️ Erreur tech : {e}")
@@ -161,12 +176,7 @@ finally:
             filtre_anti_doublons[url_de_loffre] = offre
         offres_uniques = list(filtre_anti_doublons.values())  
         print(f"\n📤 Envoi de {len(offres_uniques)} mises à jour vers Supabase...")
-        
-        # On envoie par paquets de 1000 (limite Supabase)
-        for i in range(0, len(offres_uniques), 1000):
-            batch = offres_uniques[i : i + 1000]
-            supabase.table(table_choisie).upsert(batch, on_conflict="URL").execute()
-        print("✅ Base de données synchronisée !")
+        upsert_data(supabase, table_choisie, offres_uniques)        
     else:
         print("\n✅ Aucune offre à mettre à jour.")
     driver.quit()

@@ -193,7 +193,7 @@ for i, offre in enumerate(liste_offres):
                 offres_a_mettre_a_jour.append({
                     "URL": url, # La clé pour que Supabase sache quelle ligne modifier
                     "Date_Expiration": datetime.now().strftime("%Y-%m-%d"), # Format ISO standard
-                    "Statut": "Archive"
+                    "Statut": "Archivé"
                 })   
 
         # Petite pause pour être gentil avec l'API (10 offres par seconde max)
