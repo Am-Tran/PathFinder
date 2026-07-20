@@ -1,0 +1,21 @@
+☁️ Récupération des offres actives depuis Supabase...
+🕵️ 100 offres à vérifier dans la base de données.
+
+🚀 Démarrage de la mise à jour des statuts...
+Vérification du statut des offres:   0%|          | 0/100 [00:00<?, ?it/s]Vérification du statut des offres:   0%|          | 0/100 [00:30<?, ?it/s]
+
+⏸️ PAUSE MANUELLE ACTIVÉE.
+👉 Résolvez le problème sur le navigateur, puis appuyez sur 'Entrée' dans cette console pour reprendre...
+
+🛑 Arrêt manuel ! Sauvegarde de ce qui a été fait...
+
+✅ Aucune offre à mettre à jour.
+
+🏁 Bilan Updater :
+   ⚰️  Offres passées en 'Expirée' : 0
+   ✅  Offres confirmées actives : 0
+Exception ignored while calling deallocator <function Chrome.__del__ at 0x0000022AEF278040>:
+Traceback (most recent call last):
+  File "D:\VSC\PathFinder\.venv\Lib\site-packages\undetected_chromedriver\__init__.py", line 843, in __del__
+  File "D:\VSC\PathFinder\.venv\Lib\site-packages\undetected_chromedriver\__init__.py", line 798, in quit
+OSError: [WinError 6] Descripteur non valide

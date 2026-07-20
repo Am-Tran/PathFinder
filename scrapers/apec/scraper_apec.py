@@ -18,6 +18,7 @@ import pytz
 from datetime import datetime
 import undetected_chromedriver as uc
 
+
 # --- 0. CONFIGURATION ---
 table_choisie = "Data_Analyst_test"
 
@@ -26,7 +27,7 @@ project_root = os.path.dirname(os.path.dirname(current_dir))
 
 if project_root not in sys.path:
     sys.path.append(project_root)
-from utils import fetch_key, upsert_data, load_data
+from utils import fetch_key, upsert_data, load_data, verifier_pause_manuelle, verifier_blocage_et_pause
 
 
 supabase_url = fetch_key("SUPABASE_URL")
@@ -41,7 +42,7 @@ filters_apec_scraper= {
 "statut": "Cible",
 "column": "URL"
 }
-df_source = load_data(supabase, table_name=table_choisie, limit=3, filters = filters_apec_scraper)
+df_source = load_data(supabase, table_name=table_choisie, limit=100, filters = filters_apec_scraper)
 
 timezone_fr = pytz.timezone('Europe/Paris')
 date_actuelle = datetime.now(timezone_fr).date()
@@ -209,6 +210,8 @@ try:
             
             time.sleep(random.uniform(3, 5))
             tuer_les_cookies(driver)
+            verifier_blocage_et_pause(driver)
+            verifier_pause_manuelle()
             
             # Petit scroll pour charger le contenu (Lazy loading)
             driver.execute_script("window.scrollTo(0, 400);")
@@ -247,8 +250,9 @@ try:
 
             # Si l'offre est morte, on la marque comme archivée
             if not description:
-                description = "erreur inattendue"
-            if "offre n'est plus en ligne" in description.lower() or "erreur inattendue" in description.lower():
+                description = "None"
+            balise_morte = soup.find('apec-offre-unpublished-archived')
+            if "n'est plus en ligne" in description.lower() or balise_morte:
                 print("🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.")
                 statut = "Archivé"
                 date_expi = datetime.now().strftime("%Y-%m-%d")
@@ -316,6 +320,10 @@ except Exception as e:
 
 finally:
     print("\n💾 Sauvegarde avant fermeture...")
+    nb_archives = sum(1 for offre in offres_en_memoire if offre.get('Statut') == 'Archivé')
+    nb_collecte = len(offres_en_memoire) - nb_archives
+
+    print(f"📊 Bilan avant envoi : {nb_collecte} actives, {nb_archives} archivées.")
     if offres_en_memoire:
         upsert_data(supabase, table_choisie, offres_en_memoire)
     try:

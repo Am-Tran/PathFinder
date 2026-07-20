@@ -1,0 +1,100 @@
+📥 Récupération du stock actuel pour éviter les doublons...
+🛡️ 100 offres APEC déjà en base. Elles seront ignorées.
+🚀 Lancement du scraper APEC...
+🚀 Démarrage du Robot APEC (Mode Tueur de Cookies)...
+Scraping & Cleaning APEC:   0%|          | 0/100 [00:00<?, ?it/s]Scraping & Cleaning APEC:   1%|          | 1/100 [00:18<29:49, 18.07s/it]Scraping & Cleaning APEC:   2%|▏         | 2/100 [00:36<29:52, 18.29s/it]Scraping & Cleaning APEC:   3%|▎         | 3/100 [00:51<27:09, 16.80s/it]Scraping & Cleaning APEC:   4%|▍         | 4/100 [01:07<26:26, 16.53s/it]Scraping & Cleaning APEC:   5%|▌         | 5/100 [01:22<24:56, 15.75s/it]Scraping & Cleaning APEC:   6%|▌         | 6/100 [01:36<24:08, 15.41s/it]Scraping & Cleaning APEC:   7%|▋         | 7/100 [01:52<23:56, 15.44s/it]Scraping & Cleaning APEC:   8%|▊         | 8/100 [02:08<24:01, 15.67s/it]Scraping & Cleaning APEC:   9%|▉         | 9/100 [02:23<23:23, 15.42s/it]Scraping & Cleaning APEC:  10%|█         | 10/100 [02:38<22:55, 15.28s/it]Scraping & Cleaning APEC:  11%|█         | 11/100 [03:02<26:48, 18.08s/it]Scraping & Cleaning APEC:  12%|█▏        | 12/100 [03:17<25:15, 17.23s/it]Scraping & Cleaning APEC:  13%|█▎        | 13/100 [03:32<23:52, 16.46s/it]Scraping & Cleaning APEC:  14%|█▍        | 14/100 [03:48<23:18, 16.26s/it]Scraping & Cleaning APEC:  15%|█▌        | 15/100 [04:03<22:26, 15.84s/it]Scraping & Cleaning APEC:  16%|█▌        | 16/100 [04:18<21:53, 15.63s/it]Scraping & Cleaning APEC:  17%|█▋        | 17/100 [04:34<21:43, 15.71s/it]Scraping & Cleaning APEC:  18%|█▊        | 18/100 [04:50<21:31, 15.75s/it]Scraping & Cleaning APEC:  19%|█▉        | 19/100 [05:05<21:02, 15.58s/it]Scraping & Cleaning APEC:  20%|██        | 20/100 [05:20<20:41, 15.52s/it]Scraping & Cleaning APEC:  21%|██        | 21/100 [05:46<24:31, 18.63s/it]Scraping & Cleaning APEC:  22%|██▏       | 22/100 [06:02<23:02, 17.72s/it]Scraping & Cleaning APEC:  23%|██▎       | 23/100 [06:16<21:31, 16.77s/it]Scraping & Cleaning APEC:  24%|██▍       | 24/100 [06:31<20:29, 16.18s/it]Scraping & Cleaning APEC:  25%|██▌       | 25/100 [06:47<19:56, 15.96s/it]Scraping & Cleaning APEC:  26%|██▌       | 26/100 [07:03<19:48, 16.06s/it]Scraping & Cleaning APEC:  27%|██▋       | 27/100 [07:18<19:05, 15.69s/it]Scraping & Cleaning APEC:  28%|██▊       | 28/100 [07:33<18:51, 15.71s/it]Scraping & Cleaning APEC:  29%|██▉       | 29/100 [07:48<18:20, 15.50s/it]Scraping & Cleaning APEC:  30%|███       | 30/100 [08:05<18:19, 15.71s/it]Scraping & Cleaning APEC:  31%|███       | 31/100 [08:30<21:14, 18.47s/it]Scraping & Cleaning APEC:  32%|███▏      | 32/100 [08:44<19:38, 17.33s/it]Scraping & Cleaning APEC:  33%|███▎      | 33/100 [09:00<18:39, 16.72s/it]Scraping & Cleaning APEC:  34%|███▍      | 34/100 [09:16<18:14, 16.59s/it]Scraping & Cleaning APEC:  35%|███▌      | 35/100 [09:32<17:47, 16.43s/it]Scraping & Cleaning APEC:  36%|███▌      | 36/100 [09:46<16:56, 15.88s/it]Scraping & Cleaning APEC:  37%|███▋      | 37/100 [10:02<16:33, 15.77s/it]Scraping & Cleaning APEC:  38%|███▊      | 38/100 [10:17<16:02, 15.52s/it]Scraping & Cleaning APEC:  39%|███▉      | 39/100 [10:32<15:37, 15.38s/it]Scraping & Cleaning APEC:  40%|████      | 40/100 [10:48<15:36, 15.60s/it]Scraping & Cleaning APEC:  41%|████      | 41/100 [11:13<18:09, 18.46s/it]Scraping & Cleaning APEC:  42%|████▏     | 42/100 [11:29<17:06, 17.70s/it]Scraping & Cleaning APEC:  43%|████▎     | 43/100 [11:45<16:16, 17.13s/it]Scraping & Cleaning APEC:  44%|████▍     | 44/100 [11:59<15:13, 16.30s/it]Scraping & Cleaning APEC:  45%|████▌     | 45/100 [12:14<14:26, 15.76s/it]Scraping & Cleaning APEC:  46%|████▌     | 46/100 [12:29<13:58, 15.53s/it]Scraping & Cleaning APEC:  47%|████▋     | 47/100 [12:45<13:47, 15.61s/it]Scraping & Cleaning APEC:  48%|████▊     | 48/100 [12:59<13:13, 15.25s/it]Scraping & Cleaning APEC:  49%|████▉     | 49/100 [13:14<13:00, 15.30s/it]Scraping & Cleaning APEC:  50%|█████     | 50/100 [13:29<12:31, 15.03s/it]Scraping & Cleaning APEC:  51%|█████     | 51/100 [13:54<14:50, 18.17s/it]Scraping & Cleaning APEC:  52%|█████▏    | 52/100 [14:11<14:03, 17.57s/it]Scraping & Cleaning APEC:  53%|█████▎    | 53/100 [14:25<13:08, 16.78s/it]Scraping & Cleaning APEC:  54%|█████▍    | 54/100 [14:41<12:40, 16.53s/it]Scraping & Cleaning APEC:  55%|█████▌    | 55/100 [14:58<12:19, 16.44s/it]Scraping & Cleaning APEC:  56%|█████▌    | 56/100 [15:13<11:46, 16.07s/it]Scraping & Cleaning APEC:  57%|█████▋    | 57/100 [15:27<11:12, 15.63s/it]Scraping & Cleaning APEC:  58%|█████▊    | 58/100 [15:43<10:50, 15.50s/it]Scraping & Cleaning APEC:  59%|█████▉    | 59/100 [15:58<10:34, 15.48s/it]Scraping & Cleaning APEC:  60%|██████    | 60/100 [16:13<10:17, 15.45s/it]Scraping & Cleaning APEC:  61%|██████    | 61/100 [16:39<12:00, 18.48s/it]Scraping & Cleaning APEC:  62%|██████▏   | 62/100 [16:54<11:03, 17.47s/it]Scraping & Cleaning APEC:  63%|██████▎   | 63/100 [17:09<10:13, 16.59s/it]Scraping & Cleaning APEC:  64%|██████▍   | 64/100 [17:24<09:47, 16.33s/it]Scraping & Cleaning APEC:  65%|██████▌   | 65/100 [17:39<09:12, 15.80s/it]Scraping & Cleaning APEC:  66%|██████▌   | 66/100 [17:55<08:57, 15.80s/it]Scraping & Cleaning APEC:  67%|██████▋   | 67/100 [18:11<08:45, 15.92s/it]Scraping & Cleaning APEC:  68%|██████▊   | 68/100 [18:26<08:22, 15.71s/it]Scraping & Cleaning APEC:  69%|██████▉   | 69/100 [18:41<07:59, 15.48s/it]Scraping & Cleaning APEC:  70%|███████   | 70/100 [18:56<07:37, 15.26s/it]Scraping & Cleaning APEC:  71%|███████   | 71/100 [19:22<08:56, 18.49s/it]Scraping & Cleaning APEC:  72%|███████▏  | 72/100 [19:36<08:05, 17.34s/it]Scraping & Cleaning APEC:  73%|███████▎  | 73/100 [19:51<07:26, 16.53s/it]Scraping & Cleaning APEC:  74%|███████▍  | 74/100 [20:06<06:58, 16.08s/it]Scraping & Cleaning APEC:  75%|███████▌  | 75/100 [20:21<06:31, 15.66s/it]Scraping & Cleaning APEC:  76%|███████▌  | 76/100 [20:37<06:16, 15.70s/it]Scraping & Cleaning APEC:  77%|███████▋  | 77/100 [20:51<05:52, 15.34s/it]Scraping & Cleaning APEC:  78%|███████▊  | 78/100 [21:06<05:31, 15.08s/it]Scraping & Cleaning APEC:  79%|███████▉  | 79/100 [21:21<05:17, 15.11s/it]Scraping & Cleaning APEC:  80%|████████  | 80/100 [21:37<05:06, 15.32s/it]Scraping & Cleaning APEC:  81%|████████  | 81/100 [22:01<05:44, 18.13s/it]Scraping & Cleaning APEC:  82%|████████▏ | 82/100 [22:17<05:12, 17.35s/it]Scraping & Cleaning APEC:  83%|████████▎ | 83/100 [22:33<04:48, 16.99s/it]Scraping & Cleaning APEC:  84%|████████▍ | 84/100 [22:48<04:20, 16.26s/it]Scraping & Cleaning APEC:  85%|████████▌ | 85/100 [23:03<04:01, 16.10s/it]Scraping & Cleaning APEC:  86%|████████▌ | 86/100 [23:18<03:41, 15.79s/it]Scraping & Cleaning APEC:  87%|████████▋ | 87/100 [23:33<03:22, 15.59s/it]Scraping & Cleaning APEC:  88%|████████▊ | 88/100 [23:50<03:09, 15.78s/it]Scraping & Cleaning APEC:  89%|████████▉ | 89/100 [24:05<02:52, 15.65s/it]Scraping & Cleaning APEC:  90%|█████████ | 90/100 [24:20<02:33, 15.33s/it]Scraping & Cleaning APEC:  91%|█████████ | 91/100 [24:44<02:42, 18.09s/it]Scraping & Cleaning APEC:  92%|█████████▏| 92/100 [25:00<02:18, 17.29s/it]Scraping & Cleaning APEC:  93%|█████████▎| 93/100 [25:14<01:55, 16.48s/it]Scraping & Cleaning APEC:  94%|█████████▍| 94/100 [25:29<01:35, 15.87s/it]Scraping & Cleaning APEC:  95%|█████████▌| 95/100 [25:45<01:20, 16.10s/it]Scraping & Cleaning APEC:  96%|█████████▌| 96/100 [26:01<01:04, 16.13s/it]Scraping & Cleaning APEC:  97%|█████████▋| 97/100 [26:18<00:48, 16.14s/it]Scraping & Cleaning APEC:  98%|█████████▊| 98/100 [26:34<00:32, 16.15s/it]Scraping & Cleaning APEC:  99%|█████████▉| 99/100 [26:50<00:16, 16.16s/it]Scraping & Cleaning APEC: 100%|██████████| 100/100 [27:06<00:00, 16.17s/it]Scraping & Cleaning APEC: 100%|██████████| 100/100 [27:06<00:00, 16.27s/it]
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+
+⏸️ PAUSE MANUELLE ACTIVÉE.
+👉 Résolvez le problème sur le navigateur, puis appuyez sur 'Entrée' dans cette console pour reprendre...
+▶️ REPRISE DU SCRIPT.
+
+🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.
+❌ Erreur : HTTPConnectionPool(host='localhost', port=50064): Max retries exceeded with url: /session/ffce09d07fa2ae2eb5e4003c63be96e6/source (Caused by NewConnectionError("HTTPConnection(host='localhost', port=50064): Failed to establish a new connection: [WinError 10061] Aucune connexion n’a pu être établie car l’ordinateur cible l’a expressément refusée"))
+❌ Erreur : HTTPConnectionPool(host='localhost', port=50064): Max retries exceeded with url: /session/ffce09d07fa2ae2eb5e4003c63be96e6/url (Caused by NewConnectionError("HTTPConnection(host='localhost', port=50064): Failed to establish a new connection: [WinError 10061] Aucune connexion n’a pu être établie car l’ordinateur cible l’a expressément refusée"))
+❌ Erreur : HTTPConnectionPool(host='localhost', port=50064): Max retries exceeded with url: /session/ffce09d07fa2ae2eb5e4003c63be96e6/url (Caused by NewConnectionError("HTTPConnection(host='localhost', port=50064): Failed to establish a new connection: [WinError 10061] Aucune connexion n’a pu être établie car l’ordinateur cible l’a expressément refusée"))
+❌ Erreur : HTTPConnectionPool(host='localhost', port=50064): Max retries exceeded with url: /session/ffce09d07fa2ae2eb5e4003c63be96e6/url (Caused by NewConnectionError("HTTPConnection(host='localhost', port=50064): Failed to establish a new connection: [WinError 10061] Aucune connexion n’a pu être établie car l’ordinateur cible l’a expressément refusée"))
+❌ Erreur : HTTPConnectionPool(host='localhost', port=50064): Max retries exceeded with url: /session/ffce09d07fa2ae2eb5e4003c63be96e6/url (Caused by NewConnectionError("HTTPConnection(host='localhost', port=50064): Failed to establish a new connection: [WinError 10061] Aucune connexion n’a pu être établie car l’ordinateur cible l’a expressément refusée"))
+❌ Erreur : HTTPConnectionPool(host='localhost', port=50064): Max retries exceeded with url: /session/ffce09d07fa2ae2eb5e4003c63be96e6/url (Caused by NewConnectionError("HTTPConnection(host='localhost', port=50064): Failed to establish a new connection: [WinError 10061] Aucune connexion n’a pu être établie car l’ordinateur cible l’a expressément refusée"))
+
+💾 Sauvegarde avant fermeture...
+📊 Bilan avant envoi : 22 actives, 72 archivées.
+
+🚀 Envoi de 94 offres vers Supabase...
+✅ SUCCÈS CLOUD : 94 Offres sauvegardées.
+Fin de scraper_apec
+Exception ignored while calling deallocator <function Chrome.__del__ at 0x000001D8E3250250>:
+Traceback (most recent call last):
+  File "D:\VSC\PathFinder\.venv\Lib\site-packages\undetected_chromedriver\__init__.py", line 843, in __del__
+  File "D:\VSC\PathFinder\.venv\Lib\site-packages\undetected_chromedriver\__init__.py", line 798, in quit
+OSError: [WinError 6] Descripteur non valide

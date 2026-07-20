@@ -168,11 +168,71 @@ def upsert_data(_client, table_choisie, liste_donnees):
             batch = liste_donnees[i : i + 1000]
             _client.table(table_choisie).upsert(batch, on_conflict="URL").execute()
             
-        print("✅ SUCCÈS CLOUD : Offres sauvegardées avec le statut 'Collecte'.")
+        print(f"✅ SUCCÈS CLOUD : {len(liste_donnees)} Offres sauvegardées.")
     except Exception as e:
         print(f"❌ Erreur lors de l'envoi à Supabase : {e}")
 
 
+import msvcrt
+import time
+
+def verifier_pause_manuelle():
+    """Met en pause si '1' est pressé, et attend 'Entrée' pour reprendre."""
     
+    # 1. On vérifie si une touche a été pressée dans la console (sans bloquer le code)
+    if msvcrt.kbhit():
+        touche = msvcrt.getch() # On capture la touche
+        
+        # 2. Si c'est la touche '1' (lue comme du binaire b'1')
+        if touche == b'1':
+            print("\n⏸️ PAUSE MANUELLE ACTIVÉE.")
+            print("👉 Résolvez le problème sur le navigateur, puis appuyez sur 'Entrée' dans cette console pour reprendre...")
+            
+            # 3. On bloque le script dans une boucle infinie
+            while True:
+                # On attend une nouvelle frappe
+                if msvcrt.kbhit():
+                    touche_reprise = msvcrt.getch()
+                    # Si c'est la touche 'Entrée' (le retour chariot b'\r')
+                    if touche_reprise == b'\r':
+                        print("▶️ REPRISE DU SCRIPT.\n")
+                        break # On casse la boucle, le script reprend !
+                
+                time.sleep(0.1) # Petite pause pour ne pas faire chauffer le processeur
 
 
+import msvcrt
+import time
+import sys
+import winsound
+
+def verifier_blocage_et_pause(driver):
+    """Détecte un Time-out DataDome, nettoie la session et attend avant de reprendre."""
+    
+    code_source = driver.page_source.lower()
+
+    if "accès temporairement restreint" in code_source or "data-dd-captcha" in code_source:
+        
+        print("\n🚨 ALERTE ROUGE : Blocage DataDome détecté (Time-out) !", file=sys.stderr)
+        winsound.Beep(1000, 1000)
+        
+        # 1. On vide la session pour oublier le "mauvais" historique
+        print("🧹 Nettoyage des cookies de la session...", file=sys.stderr)
+        driver.delete_all_cookies()
+        driver.execute_script("window.localStorage.clear();")
+        driver.execute_script("window.sessionStorage.clear();")
+        
+        # 2. On met le script en pause automatique pendant 10 minutes
+        print("⏳ Mise en pause de 10 minutes pour réinitialiser le compteur de l'IP...", file=sys.stderr)
+        
+        # Petite boucle sympa pour voir le temps défiler dans la console
+        for minute in range(10, 0, -1):
+            print(f"   ... reprise dans {minute} minute(s)", file=sys.stderr)
+            time.sleep(60) # Attend 60 secondes
+            
+        # 3. Le temps est écoulé, on recharge la page de l'offre
+        print("▶️ REPRISE DU SCRIPT. Rechargement de la page...", file=sys.stderr)
+        driver.refresh()
+        
+        # On laisse quelques secondes à la page pour s'afficher correctement
+        time.sleep(3)

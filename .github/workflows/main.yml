@@ -27,7 +27,8 @@ jobs:
         run: pip install -r requirements.txt
       - name: Lancement Pipeline FT
         run: |
-          python scrapers/francetravail/api_francetravail.py          
+          python scrapers/francetravail/api_francetravail.py
+          python scrapers/francetravail/clean_francetravail.py          
 
   # 🤖 Agent 2 : Welcome to the Jungle
   agent_wttj:

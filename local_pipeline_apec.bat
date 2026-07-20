@@ -1,6 +1,7 @@
 @echo off
 :: Passage de la console en UTF-8 pour bien lire les emojis de tes scripts
 chcp 65001 > nul
+set PYTHONIOENCODING=utf-8
 
 echo ===================================================
 echo       LANCEMENT DU PIPELINE APEC (Séquentiel)

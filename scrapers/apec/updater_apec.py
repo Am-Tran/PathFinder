@@ -25,7 +25,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
 if project_root not in sys.path:
     sys.path.append(project_root)
-from utils import fetch_key, load_data, upsert_data
+from utils import fetch_key, load_data, upsert_data, verifier_pause_manuelle, verifier_blocage_et_pause
 
 supabase_url = fetch_key("SUPABASE_URL")
 supabase_key = fetch_key("SUPABASE_KEY")
@@ -42,7 +42,7 @@ filters_apec_update= {
     "source": "APEC",
     "statut": "Actif"
     }
-df_base = load_data(supabase, table_name=table_choisie, limit=None, filters = filters_apec_update)
+df_base = load_data(supabase, table_name=table_choisie, limit=100, filters = filters_apec_update)
 if df_base.empty:
         print("✅ Aucun ancien stock à vérifier.")
         exit()
@@ -127,15 +127,18 @@ try:
             
             # Pause très courte (on veut juste voir si le texte charge)
             time.sleep(random.uniform(2, 4))
+            verifier_blocage_et_pause(driver)
+            verifier_pause_manuelle()
             
             soup = BeautifulSoup(driver.page_source, 'html.parser')           
             
             # --- LOGIQUE DE DIAGNOSTIC ---
             div_officielle = soup.select_one(".details-offer-content")
             texte_page = soup.get_text(separator=" ", strip=True).lower()
+            balise_morte = soup.find('apec-offre-unpublished-archived')
 
             # --- DÉCISION ---
-            if "offre n'est plus en ligne" in texte_page or "cette offre n'est plus disponible" in texte_page or "erreur inattendue" in texte_page:
+            if "n'est plus en ligne" in texte_page or "n'est plus disponible" in texte_page or balise_morte:
                 offres_a_mettre_a_jour.append({
                     "URL": url, 
                     "Date_Expiration": datetime.now().strftime("%Y-%m-%d"),
