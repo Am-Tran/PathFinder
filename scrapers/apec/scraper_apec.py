@@ -219,6 +219,12 @@ try:
             # if index == 0 or index == 1:
             #     driver.save_screenshot(f"debug_scraper_{index}.png")
             #     print(f"📸 Photo {index} sauvegardée. Regarde le fichier pour vérifier l'affichage.")
+            source_brute = driver.page_source.lower()
+            if "data-dd" in source_brute or "captcha" in source_brute:
+                print("\n🚨 Rattrapage : Blocage DataDome apparu tardivement !")
+                verifier_blocage_et_pause(driver)
+                source_brute = driver.page_source.lower()
+
             soup = BeautifulSoup(driver.page_source, 'html.parser')
 
             # --- A. VERIFICATION EXPIRATION ---
@@ -291,13 +297,13 @@ try:
 
             # --- SAUVEGARDE ---      
             nouvelle_ligne = {
-                "Titre": titre,
-                "Entreprise": entreprise,
+                #"Titre": titre,
+                #"Entreprise": entreprise,
                 "Ville": ville_finale,
                 "Type_Contrat": contrat_final,
                 "Salaire_Annuel": salaire_clean,                
                 "Description": description_totale,
-                "Source" : "APEC",
+                #"Source" : "APEC",
                 "URL": url,
                 "Date_Publication" : date_publi,
                 "Date_Expiration" : date_expi,

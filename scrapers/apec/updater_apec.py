@@ -40,7 +40,8 @@ date_du_jour = pd.to_datetime(date_actuelle)
 print("☁️ Récupération des offres actives depuis Supabase...")
 filters_apec_update= {
     "source": "APEC",
-    "statut": "Actif"
+    "statut": "Actif",
+    "column": "URL, Date_Publication"
     }
 df_base = load_data(supabase, table_name=table_choisie, limit=100, filters = filters_apec_update)
 if df_base.empty:

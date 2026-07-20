@@ -34,7 +34,8 @@ date_du_jour = pd.to_datetime(date_actuelle)
 print("☁️ Récupération des offres actives depuis Supabase...")
 filters_wttj_update= {
     "source": "Welcome to the Jungle",
-    "statut": "Actif"
+    "statut": "Actif",
+    "column": "URL, Date_Publication"
     }
 df_base = load_data(supabase, table_name=table_choisie, limit=None, filters = filters_wttj_update)
 if df_base.empty or 'Date_Publication' not in df_base.columns:

@@ -209,30 +209,30 @@ import winsound
 def verifier_blocage_et_pause(driver):
     """Détecte un Time-out DataDome, nettoie la session et attend avant de reprendre."""
     
-    code_source = driver.page_source.lower()
-
-    if "accès temporairement restreint" in code_source or "data-dd-captcha" in code_source:
-        
+    source = driver.page_source.lower()   
+   
+    if "data-dd" in source or "captcha" in source or "restreint" in source:
         print("\n🚨 ALERTE ROUGE : Blocage DataDome détecté (Time-out) !", file=sys.stderr)
         winsound.Beep(1000, 1000)
         
-        # 1. On vide la session pour oublier le "mauvais" historique
-        print("🧹 Nettoyage des cookies de la session...", file=sys.stderr)
+        # 1. Nettoyage total de la mémoire
+        print("🧹 Nettoyage des cookies et du stockage local...", file=sys.stderr)
         driver.delete_all_cookies()
-        driver.execute_script("window.localStorage.clear();")
-        driver.execute_script("window.sessionStorage.clear();")
+        try:
+            driver.execute_script("window.localStorage.clear();")
+            driver.execute_script("window.sessionStorage.clear();")
+        except:
+            pass # Si le script javascript échoue, on ignore
         
-        # 2. On met le script en pause automatique pendant 10 minutes
-        print("⏳ Mise en pause de 10 minutes pour réinitialiser le compteur de l'IP...", file=sys.stderr)
-        
-        # Petite boucle sympa pour voir le temps défiler dans la console
+        # 2. Mise en pause de 10 minutes
+        print("⏳ Mise en pause de 10 minutes pour purger l'IP...", file=sys.stderr)
         for minute in range(10, 0, -1):
             print(f"   ... reprise dans {minute} minute(s)", file=sys.stderr)
-            time.sleep(60) # Attend 60 secondes
+            time.sleep(60) 
             
-        # 3. Le temps est écoulé, on recharge la page de l'offre
+        # 3. Reprise
         print("▶️ REPRISE DU SCRIPT. Rechargement de la page...", file=sys.stderr)
         driver.refresh()
         
-        # On laisse quelques secondes à la page pour s'afficher correctement
+        # On laisse à la nouvelle page le temps d'apparaître
         time.sleep(3)
