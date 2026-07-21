@@ -2,7 +2,6 @@ import pandas as pd
 import os
 from datetime import datetime
 import re
-import csv
 import sys
 from supabase import create_client
 import pytz
