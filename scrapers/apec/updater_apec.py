@@ -27,6 +27,9 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 from utils import fetch_key, load_data, upsert_data, verifier_pause_manuelle, verifier_blocage_et_pause
 
+dossier_debug = os.path.join(project_root, "logs", "apec", "screenshots")
+os.makedirs(dossier_debug, exist_ok=True)
+
 supabase_url = fetch_key("SUPABASE_URL")
 supabase_key = fetch_key("SUPABASE_KEY")
 supabase = create_client(supabase_url, supabase_key)
@@ -179,8 +182,8 @@ try:
                 
                 # On limite le nombre de photos à 10 pour ne pas saturer ton disque dur
                 if compteur_doutes <= 10:
-                    nom_photo = f"debug_apec_doute_{compteur_doutes}.png"
-                    driver.save_screenshot(nom_photo)
+                    chemin_photo = os.path.join(dossier_debug, f"apec_doute_{compteur_doutes}.png")
+                    driver.save_screenshot(chemin_photo)                    
             
         except Exception as e:
                     print(f"⚠️ Erreur tech : {e}")
