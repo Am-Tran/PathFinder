@@ -20,7 +20,7 @@ import undetected_chromedriver as uc
 
 
 # --- 0. CONFIGURATION ---
-table_choisie = "Data_Analyst_test"
+table_choisie = "Data_Analyst"
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
@@ -40,9 +40,9 @@ print("📥 Récupération du stock actuel pour éviter les doublons...")
 filters_apec_scraper= {
 "source": "APEC",
 "statut": "Cible",
-"column": "URL"
+"column": "URL, Ville, Salaire_Annuel, Type_Contrat, Date_Publication"
 }
-df_source = load_data(supabase, table_name=table_choisie, limit=100, filters = filters_apec_scraper)
+df_source = load_data(supabase, table_name=table_choisie, limit=None, filters = filters_apec_scraper)
 
 timezone_fr = pytz.timezone('Europe/Paris')
 date_actuelle = datetime.now(timezone_fr).date()
@@ -52,7 +52,7 @@ if df_source.empty:
     sys.exit(0)
 
 ids_connus = set(df_source['URL'].dropna())
-print(f"🛡️ {len(ids_connus)} offres APEC déjà en base. Elles seront ignorées.")
+print(f"🛡️ {len(ids_connus)} offres APEC à scraper.")
 print("🚀 Lancement du scraper APEC...")
 
 # --- FONCTIONS ---
@@ -111,7 +111,7 @@ def extraire_date(soup):
         date_clean = time.strftime("%Y-%m-%d") # Fallback : Date d'aujourd'hui
     return date_clean
 
-def extraire_contrat_fallback(texte):
+def clean_contrat(texte):
     """Regex de secours pour le contrat."""
     if not texte: return None
     txt = str(texte).upper()
@@ -189,13 +189,10 @@ try:
             
         url = row.get('URL')
         
-        # On récupère les données "en or" déjà fournies par le Crawler API
-        titre = row.get('Titre')
-        entreprise = row.get('Entreprise')
+        # On récupère les données "en or" déjà fournies par le Crawler API        
         ville = row.get('Ville')
         salaire_existant = row.get('Salaire_Annuel')
-        contrat_existant = row.get('Type_Contrat')
-        metier = row.get('Metier')
+        contrat_existant = row.get('Type_Contrat')        
         date_publi = row.get('Date_Publication')
         try:
             # On s'assure que c'est bien du texte et que ça commence par http
@@ -252,13 +249,14 @@ try:
                 salaire_clean = None
             
             if pd.isna(contrat_final) or str(contrat_final).lower() in ["none", "nan", "autre", "inconnu"]:
-                contrat_final = extraire_contrat_fallback(description)
+                contrat_final = clean_contrat(description)
 
             # Si l'offre est morte, on la marque comme archivée
             if not description:
-                description = "None"
+                description = "None"            
             balise_morte = soup.find('apec-offre-unpublished-archived')
-            if "n'est plus en ligne" in description.lower() or balise_morte:
+            
+            if ("n'est plus en ligne" in description.lower() or balise_morte) and "data-dd" not in source_brute:
                 print("🗑️  Offre expirée entre-temps. Mise à jour en 'Archivé'.")
                 statut = "Archivé"
                 date_expi = datetime.now().strftime("%Y-%m-%d")
@@ -295,22 +293,32 @@ try:
 
             deja_faites.append(url)
 
-            # --- SAUVEGARDE ---      
-            nouvelle_ligne = {
-                #"Titre": titre,
-                #"Entreprise": entreprise,
-                "Ville": ville_finale,
-                "Type_Contrat": contrat_final,
-                "Salaire_Annuel": salaire_clean,                
-                "Description": description_totale,
-                #"Source" : "APEC",
-                "URL": url,
-                "Date_Publication" : date_publi,
-                "Date_Expiration" : date_expi,
-                "Metier": metier,
-                "Statut" : statut
+            # --- SAUVEGARDE DYNAMIQUE (PARTIAL UPSERT) ---       
+            if statut == "Archivé":                
+                nouvelle_ligne = {
+                    "URL": url,
+                    "Statut": "Archivé",
+                    "Date_Expiration": date_expi,
+                    "Description": description_totale
+                }
+            else:                
+                nouvelle_ligne = {
+                    "URL": url,
+                    "Ville": ville_finale,
+                    "Type_Contrat": contrat_final,
+                    "Salaire_Annuel": salaire_clean,                
+                    "Description": description_totale,
+                    "Date_Publication": date_publi,
+                    "Date_Expiration": None,
+                    "Statut": "Prep"
+                }
 
-            }
+            # 🧹 NETTOYAGE ANTI-CRASH JSON POUR SUPABASE
+            for cle, valeur in nouvelle_ligne.items():
+                if pd.isna(valeur): # Transforme les NaN/NaT de Pandas en "Null" pour Supabase
+                    nouvelle_ligne[cle] = None
+                elif isinstance(valeur, pd.Timestamp): # Transforme les dates Pandas en texte simple
+                    nouvelle_ligne[cle] = valeur.strftime("%Y-%m-%d")
                         
             offres_en_memoire.append(nouvelle_ligne)     
 

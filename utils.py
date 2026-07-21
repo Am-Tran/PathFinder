@@ -213,7 +213,7 @@ def verifier_blocage_et_pause(driver):
    
     if "data-dd" in source or "captcha" in source or "restreint" in source:
         print("\n🚨 ALERTE ROUGE : Blocage DataDome détecté (Time-out) !", file=sys.stderr)
-        winsound.Beep(1000, 1000)
+        #winsound.Beep(1000, 1000)
         
         # 1. Nettoyage total de la mémoire
         print("🧹 Nettoyage des cookies et du stockage local...", file=sys.stderr)

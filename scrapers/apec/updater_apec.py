@@ -20,7 +20,7 @@ import undetected_chromedriver as uc
 
 # --- CONFIGURATION ---
 
-table_choisie = "Data_Analyst_test"
+table_choisie = "Data_Analyst"
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
 if project_root not in sys.path:
@@ -43,7 +43,7 @@ filters_apec_update= {
     "statut": "Actif",
     "column": "URL, Date_Publication"
     }
-df_base = load_data(supabase, table_name=table_choisie, limit=100, filters = filters_apec_update)
+df_base = load_data(supabase, table_name=table_choisie, limit=None, filters = filters_apec_update)
 if df_base.empty:
         print("✅ Aucun ancien stock à vérifier.")
         exit()
@@ -84,11 +84,19 @@ driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
 })
 
 def tuer_cookies(driver):
+    """Cherche le bouton 'Tout refuser' ou 'Refuser' et clique dessus."""
     try:
-        WebDriverWait(driver, 3).until(EC.element_to_be_clickable((By.ID, "onetrust-reject-all-handler"))).click()
+        # On attend max 3 secondes que le bouton apparaisse
+        bouton = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'refuser') or contains(., 'Refuser') or contains(., 'Continuer sans accepter')]"))
+        )
+        time.sleep(1)
+        bouton.click()
+        time.sleep(2) # On laisse le temps à la bannière de disparaître
+        return True
     except:
-        try: driver.find_element(By.ID, "onetrust-accept-btn-handler").click()
-        except: pass
+        # Si pas de bannière ou bouton pas trouvé, c'est pas grave, on continue
+        return False
 
 print("\n🚀 Démarrage de la mise à jour des statuts...")
 
@@ -128,8 +136,15 @@ try:
             
             # Pause très courte (on veut juste voir si le texte charge)
             time.sleep(random.uniform(2, 4))
+            tuer_cookies(driver)
             verifier_blocage_et_pause(driver)
             verifier_pause_manuelle()
+
+            source_brute = driver.page_source.lower()
+            if "data-dd" in source_brute or "captcha" in source_brute:
+                print("\n🚨 Rattrapage : Blocage DataDome apparu tardivement !")
+                verifier_blocage_et_pause(driver)
+                source_brute = driver.page_source.lower()
             
             soup = BeautifulSoup(driver.page_source, 'html.parser')           
             
@@ -139,7 +154,7 @@ try:
             balise_morte = soup.find('apec-offre-unpublished-archived')
 
             # --- DÉCISION ---
-            if "n'est plus en ligne" in texte_page or "n'est plus disponible" in texte_page or balise_morte:
+            if ("n'est plus en ligne" in texte_page or "n'est plus disponible" in texte_page or balise_morte) and "data-dd" not in source_brute:
                 offres_a_mettre_a_jour.append({
                     "URL": url, 
                     "Date_Expiration": datetime.now().strftime("%Y-%m-%d"),
@@ -149,7 +164,7 @@ try:
                 tqdm.write(f" ❌ EXPIRÉE : {url}")
                 compteur_morts += 1
                 
-            elif div_officielle:
+            elif div_officielle and "data-dd" not in source_brute:
                 # L'offre est vivante, on ne spamme pas la console pour aller plus vite
                 compteur_vivants += 1           
                 
@@ -157,6 +172,10 @@ try:
                 # Si on n'a NI l'un NI l'autre, c'est qu'on a probablement mangé un Captcha !
                 tqdm.write(f" ⚠️ DOUTE (Page non reconnue) : {url}")
                 compteur_doutes += 1
+                offres_a_mettre_a_jour.append({
+                    "URL": url, 
+                    "Statut": "Quarantaine"
+                })
                 
                 # On limite le nombre de photos à 10 pour ne pas saturer ton disque dur
                 if compteur_doutes <= 10:

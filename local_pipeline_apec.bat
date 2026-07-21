@@ -17,12 +17,12 @@ call .venv\Scripts\activate
 :: 3. Lancer le Scraper
 echo [ETAPE 1/2] Demarrage du Scraper...
 :: Le symbole > ecrase le fichier. Le 2>&1 capture les erreurs et tqdm.
-python scrapers\apec\scraper_apec.py
+python scrapers\apec\scraper_apec.py > scrapers\apec\log_scraper.txt 2>&1
 echo.
 
 :: 4. Lancer l'Updater
 echo [ETAPE 2/2] Demarrage de l'Updater...
-python scrapers\apec\updater_apec.py
+python scrapers\apec\updater_apec.py > scrapers\apec\logs_updater.txt 2>&1
 echo.
 
 :: 5. Fermeture propre
