@@ -1,3 +1,6 @@
+import os
+import sys
+import subprocess
 import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -9,8 +12,6 @@ import re
 from bs4 import BeautifulSoup
 import time
 import random
-import os
-import sys
 from datetime import datetime
 from supabase import create_client
 from tqdm import tqdm
@@ -67,6 +68,15 @@ ordre_colonnes = ["Titre", "Entreprise", "Ville", "Salaire_Brut", "Details_Tags"
 
 
 # --- ROBOT ---
+dossier_profil_bot = os.path.join(project_root, "logs", "profil_chrome_updater")
+os.makedirs(dossier_profil_bot, exist_ok=True)
+
+lock_path = os.path.join(dossier_profil_bot, "SingletonLock")
+if os.path.exists(lock_path):
+    try:
+        os.remove(lock_path)
+    except:
+        pass
 
 # options = webdriver.ChromeOptions()
 # options.add_argument("--disable-blink-features=AutomationControlled")
@@ -77,7 +87,9 @@ options.add_argument("--window-size=1920,1080")
 options.add_argument("--no-sandbox") # Sécurité requise sur les serveurs Linux
 options.add_argument("--disable-dev-shm-usage") # Évite les crashs de mémoire (RAM)
 
-driver = uc.Chrome(options=options,version_main=150)
+options.add_argument(f"--user-data-dir={dossier_profil_bot}")
+
+driver = uc.Chrome(options=options, version_main=150)
 driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
     'source': '''
         Object.defineProperty(navigator, 'webdriver', {
@@ -205,7 +217,28 @@ finally:
         upsert_data(supabase, table_choisie, offres_uniques)        
     else:
         print("\n✅ Aucune offre à mettre à jour.")
-    driver.quit()
+    pid = None
+    try:
+        pid = driver.browser_pid
+    except:
+        print("Pas de PID")
+        pass
+    try:
+        driver.quit()
+    except:
+        print("Echec de driver.quit()")
+        pass
+    if pid:
+        try:       
+            subprocess.run(
+                ["taskkill", "/F", "/PID", str(pid), "/T"], 
+                stdout=subprocess.DEVNULL, 
+                stderr=subprocess.DEVNULL
+            )
+            print(f"🔫 Processus fantôme Chrome (PID {pid}) éliminé avec succès.")
+        except Exception as e:
+            print(f"⚠️ Erreur lors du kill du processus : {e}")
+        pass
     
     print("\n🏁 Bilan Updater :")
     print(f"   ⚰️  Offres passées en 'Expirée' : {compteur_morts}")

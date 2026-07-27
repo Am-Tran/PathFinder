@@ -1,5 +1,6 @@
 import os
 import sys
+import subprocess
 import pandas as pd
 from supabase import create_client
 from selenium import webdriver
@@ -150,6 +151,17 @@ def nettoyer_salaire(texte):
     
 
 # --- LE ROBOT ---
+dossier_profil_bot = os.path.join(project_root, "logs", "profil_chrome_scraper")
+os.makedirs(dossier_profil_bot, exist_ok=True)
+
+lock_path = os.path.join(dossier_profil_bot, "SingletonLock")
+if os.path.exists(lock_path):
+    try:
+        os.remove(lock_path)
+    except:
+        pass
+
+
 options = uc.ChromeOptions()
 # options = webdriver.ChromeOptions()
 #options.add_argument("--start-maximized")
@@ -162,7 +174,9 @@ options.add_argument("--window-size=1920,1080")
 options.add_argument("--no-sandbox") # Sécurité requise sur les serveurs Linux
 options.add_argument("--disable-dev-shm-usage") # Évite les crashs de mémoire (RAM)
 
-driver = uc.Chrome(options=options,version_main=150)
+options.add_argument(f"--user-data-dir={dossier_profil_bot}")
+
+driver = uc.Chrome(options=options, version_main=150)
 #driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
     'source': '''
@@ -340,8 +354,26 @@ finally:
     print(f"📊 Bilan avant envoi : {nb_collecte} actives, {nb_archives} archivées.")
     if offres_en_memoire:
         upsert_data(supabase, table_choisie, offres_en_memoire)
+    pid = None
+    try:
+        pid = driver.browser_pid
+    except:
+        print("Pas de PID")
+        pass
     try:
         driver.quit()
     except:
+        print("Echec de driver.quit()")
+        pass
+    if pid:
+        try:       
+            subprocess.run(
+                ["taskkill", "/F", "/PID", str(pid), "/T"], 
+                stdout=subprocess.DEVNULL, 
+                stderr=subprocess.DEVNULL
+            )
+            print(f"🔫 Processus fantôme Chrome (PID {pid}) éliminé avec succès.")
+        except Exception as e:
+            print(f"⚠️ Erreur lors du kill du processus : {e}")
         pass
     print("Fin de scraper_apec")

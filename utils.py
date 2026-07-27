@@ -204,7 +204,7 @@ def verifier_pause_manuelle():
 import msvcrt
 import time
 import sys
-import winsound
+#import winsound
 
 def verifier_blocage_et_pause(driver):
     """Détecte un Time-out DataDome, nettoie la session et attend avant de reprendre."""
