@@ -173,12 +173,18 @@ def upsert_data(_client, table_choisie, liste_donnees):
         print(f"❌ Erreur lors de l'envoi à Supabase : {e}")
 
 
-import msvcrt
+import sys
+try:
+    import msvcrt
+except ImportError:
+    msvcrt = None
+
 import time
 
 def verifier_pause_manuelle():
     """Met en pause si '1' est pressé, et attend 'Entrée' pour reprendre."""
-    
+    if msvcrt is None:
+        return
     # 1. On vérifie si une touche a été pressée dans la console (sans bloquer le code)
     if msvcrt.kbhit():
         touche = msvcrt.getch() # On capture la touche
@@ -200,10 +206,8 @@ def verifier_pause_manuelle():
                 
                 time.sleep(0.1) # Petite pause pour ne pas faire chauffer le processeur
 
-
-import msvcrt
-import time
-import sys
+#import time
+#import sys
 #import winsound
 
 def verifier_blocage_et_pause(driver):
