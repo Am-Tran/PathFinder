@@ -162,10 +162,11 @@ def upsert_data(_client, table_choisie, liste_donnees):
         return
         
     print(f"\n🚀 Envoi de {len(liste_donnees)} offres vers Supabase...")
+    package_size = 500
     try:
         # On envoie par paquets de 1000 pour respecter les limites du réseau
-        for i in range(0, len(liste_donnees), 500):
-            batch = liste_donnees[i : i + 500]
+        for i in range(0, len(liste_donnees), package_size):
+            batch = liste_donnees[i : i + package_size]
             _client.table(table_choisie).upsert(batch, on_conflict="URL").execute()
             
         print(f"✅ SUCCÈS CLOUD : {len(liste_donnees)} Offres sauvegardées.")
