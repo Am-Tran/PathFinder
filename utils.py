@@ -167,9 +167,14 @@ def upsert_data(_client, table_choisie, liste_donnees):
         # On envoie par paquets de 1000 pour respecter les limites du réseau
         for i in range(0, len(liste_donnees), package_size):
             batch = liste_donnees[i : i + package_size]
-            _client.table(table_choisie).upsert(batch, on_conflict="URL").execute()
+            response = _client.table(table_choisie).upsert(batch, on_conflict="URL").execute()
+            if response.data:
+                print(f"✅ Lot {i // package_size + 1} : {len(response.data)} offres insérées/mises à jour.")
+            else:
+                # Si response.data est vide, c'est que l'API a refusé l'insertion en silence
+                print(f"⚠️ AVERTISSEMENT Lot {i // package_size + 1} - L'API n'a rien inséré. Réponse brute : {response}")
             
-        print(f"✅ SUCCÈS CLOUD : {len(liste_donnees)} Offres sauvegardées.")
+        print(f"✅ FIN CLOUD : {len(liste_donnees)} Offres sauvegardées.")
     except Exception as e:
         print(f"❌ Erreur lors de l'envoi à Supabase : {e}")
 
