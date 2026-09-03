@@ -176,7 +176,7 @@ options.add_argument("--disable-dev-shm-usage") # Évite les crashs de mémoire 
 
 options.add_argument(f"--user-data-dir={dossier_profil_bot}")
 
-driver = uc.Chrome(options=options, version_main=150)
+driver = uc.Chrome(options=options, version_main=152)
 #driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
     'source': '''
